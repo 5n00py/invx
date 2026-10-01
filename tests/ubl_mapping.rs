@@ -1,0 +1,43 @@
+use rust_decimal::Decimal;
+
+use invx::{domain::Invoice, ubl::parser::parse_invoice};
+
+const SIMPLE_INVOICE: &str = include_str!("fixtures/ubl/simple-invoice.xml");
+
+#[test]
+fn maps_ubl_invoice_into_canonical_invoice() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL invoice should parse");
+
+    let invoice = Invoice::try_from(ubl).expect("UBL invoice should map");
+
+    assert_eq!(invoice.id.as_str(), "2026-00421");
+    assert_eq!(invoice.currency.as_str(), "EUR");
+
+    assert_eq!(invoice.seller.name, "Example Supplier GmbH");
+
+    assert_eq!(invoice.buyer.name, "Example Logistics GmbH");
+
+    assert_eq!(invoice.lines.len(), 1);
+
+    let line = &invoice.lines[0];
+
+    assert_eq!(line.description, "Integration consulting");
+
+    assert_eq!(line.quantity, Decimal::new(10, 0));
+
+    assert_eq!(line.unit_price.amount, Decimal::new(95000, 2));
+
+    assert_eq!(line.net_amount.amount, Decimal::new(950000, 2));
+
+    assert_eq!(line.tax.rate, Decimal::new(20, 0));
+
+    assert_eq!(invoice.vat_breakdown.len(), 1);
+
+    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(950000, 2));
+
+    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(190000, 2));
+
+    assert_eq!(invoice.totals.gross_amount.amount, Decimal::new(1140000, 2));
+
+    assert!(invoice.totals.is_arithmetically_consistent());
+}
