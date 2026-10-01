@@ -31,8 +31,10 @@ fn detects_inconsistent_invoice_total() {
 
     assert!(!result.is_valid());
 
-    assert!(result
-        .violations
-        .iter()
-        .any(|violation| violation.code == "CORE-002"));
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|violation| violation.code == "CORE-002")
+    );
 }
