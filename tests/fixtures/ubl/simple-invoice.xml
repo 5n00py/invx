@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice
+        xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+        xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+        xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+
+    <cbc:ID>2026-00421</cbc:ID>
+    <cbc:IssueDate>2026-09-30</cbc:IssueDate>
+    <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+
+    <cac:AccountingSupplierParty>
+        <cac:Party>
+            <cac:PartyName>
+                <cbc:Name>Example Supplier GmbH</cbc:Name>
+            </cac:PartyName>
+        </cac:Party>
+    </cac:AccountingSupplierParty>
+
+    <cac:AccountingCustomerParty>
+        <cac:Party>
+            <cac:PartyName>
+                <cbc:Name>Example Logistics GmbH</cbc:Name>
+            </cac:PartyName>
+        </cac:Party>
+    </cac:AccountingCustomerParty>
+
+    <cac:TaxTotal>
+        <cbc:TaxAmount currencyID="EUR">1900.00</cbc:TaxAmount>
+
+        <cac:TaxSubtotal>
+            <cbc:TaxableAmount currencyID="EUR">9500.00</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="EUR">1900.00</cbc:TaxAmount>
+
+            <cac:TaxCategory>
+                <cbc:Percent>20</cbc:Percent>
+            </cac:TaxCategory>
+        </cac:TaxSubtotal>
+    </cac:TaxTotal>
+
+    <cac:LegalMonetaryTotal>
+        <cbc:LineExtensionAmount currencyID="EUR">9500.00</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="EUR">9500.00</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="EUR">11400.00</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="EUR">11400.00</cbc:PayableAmount>
+    </cac:LegalMonetaryTotal>
+
+    <cac:InvoiceLine>
+        <cbc:ID>1</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="HUR">10</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="EUR">9500.00</cbc:LineExtensionAmount>
+
+        <cac:Item>
+            <cbc:Description>Integration consulting</cbc:Description>
+
+            <cac:ClassifiedTaxCategory>
+                <cbc:Percent>20</cbc:Percent>
+            </cac:ClassifiedTaxCategory>
+        </cac:Item>
+
+        <cac:Price>
+            <cbc:PriceAmount currencyID="EUR">950.00</cbc:PriceAmount>
+        </cac:Price>
+    </cac:InvoiceLine>
+
+</Invoice>
