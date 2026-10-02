@@ -1,3 +1,4 @@
+pub mod compare;
 pub mod domain;
 pub mod ebinterface;
 pub mod ubl;

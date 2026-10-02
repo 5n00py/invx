@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+pub mod compare;
 pub mod convert;
 pub mod input;
 pub mod inspect;
@@ -30,4 +31,7 @@ pub enum Command {
 
     /// Convert an invoice to another format
     Convert(convert::ConvertArgs),
+
+    /// Compare two invoices semantically
+    Compare(compare::CompareArgs),
 }

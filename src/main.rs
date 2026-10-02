@@ -28,5 +28,7 @@ fn run() -> Result<ExitCode, Box<dyn Error>> {
         Command::ToJson(args) => cli::to_json::run(&args),
 
         Command::Convert(args) => cli::convert::run(&args),
+
+        Command::Compare(args) => cli::compare::run(&args),
     }
 }
