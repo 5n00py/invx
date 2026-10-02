@@ -118,3 +118,72 @@ fn detects_inconsistent_vat_breakdown_total() {
             .any(|violation| violation.code == "CORE-006")
     );
 }
+
+#[test]
+fn realistic_invoice_passes_en16931_subset() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
+
+    assert!(
+        result.is_valid(),
+        "expected valid invoice, got: {:?}",
+        result.violations
+    );
+}
+
+#[test]
+fn invoice_line_requires_vat_category() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    invoice.lines[0].tax.category_code = None;
+
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
+
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|violation| violation.code == "BR-CO-04")
+    );
+}
+
+#[test]
+fn standard_rated_line_requires_positive_rate() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    invoice.lines[0].tax.rate = Decimal::ZERO;
+
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
+
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|violation| violation.code == "BR-S-05")
+    );
+}
+
+#[test]
+fn vat_breakdown_tax_amount_must_match_rate() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    invoice.vat_breakdown[0].tax_amount.amount = Decimal::new(180_000, 2);
+
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
+
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|violation| violation.code == "BR-CO-17")
+    );
+}
