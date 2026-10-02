@@ -171,17 +171,11 @@ fn map_vat_breakdown(
     })
 }
 
-fn map_account(
-    source: EbInterfaceBeneficiaryAccount,
-) -> Option<PaymentAccount> {
+fn map_account(source: EbInterfaceBeneficiaryAccount) -> Option<PaymentAccount> {
     source
         .iban
         .or(source.bank_account_nr)
-        .map(|identifier| {
-            PaymentAccount {
-                identifier,
-            }
-        })
+        .map(|identifier| PaymentAccount { identifier })
 }
 
 fn map_bank_transfer(

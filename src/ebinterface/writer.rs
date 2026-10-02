@@ -1,38 +1,19 @@
-use std::{
-    io,
-    string::FromUtf8Error,
-};
+use std::{io, string::FromUtf8Error};
 
 use quick_xml::{
-    events::{
-        BytesDecl,
-        BytesEnd,
-        BytesStart,
-        BytesText,
-        Event,
-    },
     Writer,
+    events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event},
 };
 
 use rust_decimal::Decimal;
 use thiserror::Error;
 
 use crate::domain::{
-    Address,
-    AdjustmentKind,
-    Currency,
-    DocumentAdjustment,
-    Invoice,
-    InvoiceLine,
-    Money,
-    Party,
-    PaymentInformation,
-    PaymentMethod,
-    VatBreakdown,
+    Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceLine, Money, Party,
+    PaymentInformation, PaymentMethod, VatBreakdown,
 };
 
-const EBINTERFACE_NAMESPACE: &str =
-    "http://www.ebinterface.at/schema/6p1/";
+const EBINTERFACE_NAMESPACE: &str = "http://www.ebinterface.at/schema/6p1/";
 
 type XmlWriter = Writer<Vec<u8>>;
 
@@ -45,84 +26,52 @@ pub enum WriterError {
     Utf8(#[from] FromUtf8Error),
 
     #[error("{party} VAT identification number is required for ebInterface 6.1")]
-    MissingVatId {
-        party: &'static str,
-    },
+    MissingVatId { party: &'static str },
 
     #[error("{party} address is required for ebInterface 6.1")]
-    MissingAddress {
-        party: &'static str,
-    },
+    MissingAddress { party: &'static str },
 
     #[error("{party} city is required for ebInterface 6.1")]
-    MissingCity {
-        party: &'static str,
-    },
+    MissingCity { party: &'static str },
 
     #[error("{party} postal code is required for ebInterface 6.1")]
-    MissingPostalCode {
-        party: &'static str,
-    },
+    MissingPostalCode { party: &'static str },
 
     #[error("{party} country code is required for ebInterface 6.1")]
-    MissingCountryCode {
-        party: &'static str,
-    },
+    MissingCountryCode { party: &'static str },
 
     #[error("invoice line '{line_id}' requires a unit code for ebInterface 6.1")]
-    MissingUnitCode {
-        line_id: String,
-    },
+    MissingUnitCode { line_id: String },
 
-    #[error(
-        "invoice line ID '{line_id}' cannot be represented as an ebInterface PositionNumber"
-    )]
-    InvalidPositionNumber {
-        line_id: String,
-    },
+    #[error("invoice line ID '{line_id}' cannot be represented as an ebInterface PositionNumber")]
+    InvalidPositionNumber { line_id: String },
 
     #[error("invoice line '{line_id}' requires a VAT category for ebInterface 6.1")]
-    MissingLineTaxCategory {
-        line_id: String,
-    },
+    MissingLineTaxCategory { line_id: String },
 
     #[error("VAT breakdown requires a VAT category for ebInterface 6.1")]
     MissingVatCategory,
 
-    #[error(
-        "document adjustment requires BaseAmount for ebInterface 6.1"
-    )]
+    #[error("document adjustment requires BaseAmount for ebInterface 6.1")]
     MissingAdjustmentBaseAmount,
 
-    #[error(
-        "document adjustment requires tax information for ebInterface 6.1"
-    )]
+    #[error("document adjustment requires tax information for ebInterface 6.1")]
     MissingAdjustmentTax,
 
-    #[error(
-        "document adjustment requires a VAT category for ebInterface 6.1"
-    )]
+    #[error("document adjustment requires a VAT category for ebInterface 6.1")]
     MissingAdjustmentTaxCategory,
 
-    #[error(
-        "payment method '{method}' cannot currently be written as ebInterface 6.1"
-    )]
-    UnsupportedPaymentMethod {
-        method: &'static str,
-    },
+    #[error("payment method '{method}' cannot currently be written as ebInterface 6.1")]
+    UnsupportedPaymentMethod { method: &'static str },
 
-    #[error(
-        "currency mismatch in {field}: expected {expected}, got {actual}"
-    )]
+    #[error("currency mismatch in {field}: expected {expected}, got {actual}")]
     CurrencyMismatch {
         field: &'static str,
         expected: String,
         actual: String,
     },
 
-    #[error(
-        "value '{value}' in {field} has more than {max_scale} decimal places"
-    )]
+    #[error("value '{value}' in {field} has more than {max_scale} decimal places")]
     TooManyDecimalPlaces {
         field: &'static str,
         value: String,
@@ -130,62 +79,26 @@ pub enum WriterError {
     },
 }
 
-pub fn write_invoice(
-    invoice: &Invoice,
-) -> Result<String, WriterError> {
-    let mut writer =
-        Writer::new_with_indent(
-            Vec::new(),
-            b' ',
-            2,
-        );
+pub fn write_invoice(invoice: &Invoice) -> Result<String, WriterError> {
+    let mut writer = Writer::new_with_indent(Vec::new(), b' ', 2);
 
-    writer.write_event(Event::Decl(
-        BytesDecl::new(
-            "1.0",
-            Some("UTF-8"),
-            None,
-        ),
-    ))?;
+    writer.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
 
-    let mut root =
-        BytesStart::new("Invoice");
+    let mut root = BytesStart::new("Invoice");
 
-    root.push_attribute((
-        "xmlns",
-        EBINTERFACE_NAMESPACE,
-    ));
+    root.push_attribute(("xmlns", EBINTERFACE_NAMESPACE));
 
-    root.push_attribute((
-        "GeneratingSystem",
-        "invx",
-    ));
+    root.push_attribute(("GeneratingSystem", "invx"));
 
-    root.push_attribute((
-        "DocumentType",
-        "Invoice",
-    ));
+    root.push_attribute(("DocumentType", "Invoice"));
 
-    root.push_attribute((
-        "InvoiceCurrency",
-        invoice.currency.as_str(),
-    ));
+    root.push_attribute(("InvoiceCurrency", invoice.currency.as_str()));
 
-    writer.write_event(
-        Event::Start(root),
-    )?;
+    writer.write_event(Event::Start(root))?;
 
-    write_text(
-        &mut writer,
-        "InvoiceNumber",
-        invoice.id.as_str(),
-    )?;
+    write_text(&mut writer, "InvoiceNumber", invoice.id.as_str())?;
 
-    write_text(
-        &mut writer,
-        "InvoiceDate",
-        &invoice.issue_date.to_string(),
-    )?;
+    write_text(&mut writer, "InvoiceDate", &invoice.issue_date.to_string())?;
 
     /*
      * Official InvoiceType order:
@@ -205,13 +118,7 @@ pub fn write_invoice(
      * ...
      */
 
-    write_party(
-        &mut writer,
-        "Biller",
-        &invoice.seller,
-        None,
-        "seller",
-    )?;
+    write_party(&mut writer, "Biller", &invoice.seller, None, "seller")?;
 
     write_party(
         &mut writer,
@@ -221,22 +128,13 @@ pub fn write_invoice(
         "buyer",
     )?;
 
-    write_details(
-        &mut writer,
-        invoice,
-    )?;
+    write_details(&mut writer, invoice)?;
 
     if !invoice.adjustments.is_empty() {
-        write_adjustments(
-            &mut writer,
-            invoice,
-        )?;
+        write_adjustments(&mut writer, invoice)?;
     }
 
-    write_tax(
-        &mut writer,
-        invoice,
-    )?;
+    write_tax(&mut writer, invoice)?;
 
     write_decimal2(
         &mut writer,
@@ -252,22 +150,13 @@ pub fn write_invoice(
         "totals.payable_amount",
     )?;
 
-    if let Some(payment) =
-        &invoice.payment
-    {
-        write_payment(
-            &mut writer,
-            payment,
-        )?;
+    if let Some(payment) = &invoice.payment {
+        write_payment(&mut writer, payment)?;
     }
 
-    writer.write_event(Event::End(
-        BytesEnd::new("Invoice"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("Invoice")))?;
 
-    Ok(String::from_utf8(
-        writer.into_inner(),
-    )?)
+    Ok(String::from_utf8(writer.into_inner())?)
 }
 
 fn write_party(
@@ -280,24 +169,14 @@ fn write_party(
     let vat_id = party
         .vat_id
         .as_deref()
-        .ok_or(
-            WriterError::MissingVatId {
-                party: party_name,
-            },
-        )?;
+        .ok_or(WriterError::MissingVatId { party: party_name })?;
 
     let address = party
         .address
         .as_ref()
-        .ok_or(
-            WriterError::MissingAddress {
-                party: party_name,
-            },
-        )?;
+        .ok_or(WriterError::MissingAddress { party: party_name })?;
 
-    writer.write_event(Event::Start(
-        BytesStart::new(element_name),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new(element_name)))?;
 
     /*
      * AbstractPartyType sequence:
@@ -309,44 +188,19 @@ fn write_party(
      * Contact?
      */
 
-    write_text(
-        writer,
-        "VATIdentificationNumber",
-        vat_id,
-    )?;
+    write_text(writer, "VATIdentificationNumber", vat_id)?;
 
-    if let Some(order_reference) =
-        order_reference
-    {
-        writer.write_event(Event::Start(
-            BytesStart::new(
-                "OrderReference",
-            ),
-        ))?;
+    if let Some(order_reference) = order_reference {
+        writer.write_event(Event::Start(BytesStart::new("OrderReference")))?;
 
-        write_text(
-            writer,
-            "OrderID",
-            order_reference,
-        )?;
+        write_text(writer, "OrderID", order_reference)?;
 
-        writer.write_event(Event::End(
-            BytesEnd::new(
-                "OrderReference",
-            ),
-        ))?;
+        writer.write_event(Event::End(BytesEnd::new("OrderReference")))?;
     }
 
-    write_address(
-        writer,
-        address,
-        &party.name,
-        party_name,
-    )?;
+    write_address(writer, address, &party.name, party_name)?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new(element_name),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new(element_name)))?;
 
     Ok(())
 }
@@ -360,33 +214,19 @@ fn write_address(
     let city = address
         .city
         .as_deref()
-        .ok_or(
-            WriterError::MissingCity {
-                party,
-            },
-        )?;
+        .ok_or(WriterError::MissingCity { party })?;
 
     let postal_code = address
         .postal_code
         .as_deref()
-        .ok_or(
-            WriterError::MissingPostalCode {
-                party,
-            },
-        )?;
+        .ok_or(WriterError::MissingPostalCode { party })?;
 
     let country_code = address
         .country_code
         .as_deref()
-        .ok_or(
-            WriterError::MissingCountryCode {
-                party,
-            },
-        )?;
+        .ok_or(WriterError::MissingCountryCode { party })?;
 
-    writer.write_event(Event::Start(
-        BytesStart::new("Address"),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new("Address")))?;
 
     /*
      * AddressType requires:
@@ -399,45 +239,21 @@ fn write_address(
      * Street itself is optional.
      */
 
-    write_text(
-        writer,
-        "Name",
-        name,
-    )?;
+    write_text(writer, "Name", name)?;
 
-    if let Some(street) =
-        &address.street
-    {
-        write_text(
-            writer,
-            "Street",
-            street,
-        )?;
+    if let Some(street) = &address.street {
+        write_text(writer, "Street", street)?;
     }
 
-    write_text(
-        writer,
-        "Town",
-        city,
-    )?;
+    write_text(writer, "Town", city)?;
 
-    write_text(
-        writer,
-        "ZIP",
-        postal_code,
-    )?;
+    write_text(writer, "ZIP", postal_code)?;
 
-    let mut country =
-        BytesStart::new("Country");
+    let mut country = BytesStart::new("Country");
 
-    country.push_attribute((
-        "CountryCode",
-        country_code,
-    ));
+    country.push_attribute(("CountryCode", country_code));
 
-    writer.write_event(
-        Event::Start(country),
-    )?;
+    writer.write_event(Event::Start(country))?;
 
     /*
      * The canonical model currently stores only
@@ -445,52 +261,31 @@ fn write_address(
      * Using the code as the textual representation
      * avoids inventing localized country names.
      */
-    writer.write_event(Event::Text(
-        BytesText::new(country_code),
-    ))?;
+    writer.write_event(Event::Text(BytesText::new(country_code)))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new("Country"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("Country")))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new("Address"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("Address")))?;
 
     Ok(())
 }
 
-fn write_details(
-    writer: &mut XmlWriter,
-    invoice: &Invoice,
-) -> Result<(), WriterError> {
-    writer.write_event(Event::Start(
-        BytesStart::new("Details"),
-    ))?;
+fn write_details(writer: &mut XmlWriter, invoice: &Invoice) -> Result<(), WriterError> {
+    writer.write_event(Event::Start(BytesStart::new("Details")))?;
 
     /*
      * Our canonical model has one flat line list.
      * Represent it as one ebInterface ItemList.
      */
-    writer.write_event(Event::Start(
-        BytesStart::new("ItemList"),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new("ItemList")))?;
 
     for line in &invoice.lines {
-        write_line(
-            writer,
-            line,
-            &invoice.currency,
-        )?;
+        write_line(writer, line, &invoice.currency)?;
     }
 
-    writer.write_event(Event::End(
-        BytesEnd::new("ItemList"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("ItemList")))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new("Details"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("Details")))?;
 
     Ok(())
 }
@@ -500,25 +295,15 @@ fn write_line(
     line: &InvoiceLine,
     currency: &Currency,
 ) -> Result<(), WriterError> {
-    ensure_currency(
-        &line.unit_price,
-        currency,
-        "lines.unit_price",
-    )?;
+    ensure_currency(&line.unit_price, currency, "lines.unit_price")?;
 
-    ensure_currency(
-        &line.net_amount,
-        currency,
-        "lines.net_amount",
-    )?;
+    ensure_currency(&line.net_amount, currency, "lines.net_amount")?;
 
     let unit_code = line
         .unit_code
         .as_deref()
-        .ok_or_else(|| {
-            WriterError::MissingUnitCode {
-                line_id: line.id.clone(),
-            }
+        .ok_or_else(|| WriterError::MissingUnitCode {
+            line_id: line.id.clone(),
         })?;
 
     /*
@@ -526,54 +311,30 @@ fn write_line(
      * Do not silently drop a canonical line ID that
      * cannot be represented.
      */
-    let position_number =
-        line.id
-            .parse::<u64>()
-            .ok()
-            .filter(|value| *value > 0)
-            .ok_or_else(|| {
-                WriterError::
-                InvalidPositionNumber {
-                    line_id:
-                    line.id.clone(),
-                }
-            })?;
-
-    let category = line
-        .tax
-        .category_code
-        .as_deref()
-        .ok_or_else(|| {
-            WriterError::
-            MissingLineTaxCategory {
-                line_id:
-                line.id.clone(),
-            }
+    let position_number = line
+        .id
+        .parse::<u64>()
+        .ok()
+        .filter(|value| *value > 0)
+        .ok_or_else(|| WriterError::InvalidPositionNumber {
+            line_id: line.id.clone(),
         })?;
 
-    writer.write_event(Event::Start(
-        BytesStart::new(
-            "ListLineItem",
-        ),
-    ))?;
+    let category =
+        line.tax
+            .category_code
+            .as_deref()
+            .ok_or_else(|| WriterError::MissingLineTaxCategory {
+                line_id: line.id.clone(),
+            })?;
 
-    write_text(
-        writer,
-        "PositionNumber",
-        &position_number.to_string(),
-    )?;
+    writer.write_event(Event::Start(BytesStart::new("ListLineItem")))?;
 
-    write_text(
-        writer,
-        "Description",
-        &line.description,
-    )?;
+    write_text(writer, "PositionNumber", &position_number.to_string())?;
 
-    write_quantity(
-        writer,
-        line.quantity,
-        unit_code,
-    )?;
+    write_text(writer, "Description", &line.description)?;
+
+    write_quantity(writer, line.quantity, unit_code)?;
 
     write_decimal4(
         writer,
@@ -598,11 +359,7 @@ fn write_line(
         "lines.net_amount",
     )?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new(
-            "ListLineItem",
-        ),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("ListLineItem")))?;
 
     Ok(())
 }
@@ -612,60 +369,31 @@ fn write_quantity(
     quantity: Decimal,
     unit_code: &str,
 ) -> Result<(), WriterError> {
-    let value = format_decimal(
-        quantity,
-        4,
-        "lines.quantity",
-    )?;
+    let value = format_decimal(quantity, 4, "lines.quantity")?;
 
-    let mut element =
-        BytesStart::new("Quantity");
+    let mut element = BytesStart::new("Quantity");
 
-    element.push_attribute((
-        "Unit",
-        unit_code,
-    ));
+    element.push_attribute(("Unit", unit_code));
 
-    writer.write_event(
-        Event::Start(element),
-    )?;
+    writer.write_event(Event::Start(element))?;
 
-    writer.write_event(Event::Text(
-        BytesText::new(&value),
-    ))?;
+    writer.write_event(Event::Text(BytesText::new(&value)))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new("Quantity"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("Quantity")))?;
 
     Ok(())
 }
 
-fn write_adjustments(
-    writer: &mut XmlWriter,
-    invoice: &Invoice,
-) -> Result<(), WriterError> {
-    writer.write_event(Event::Start(
-        BytesStart::new(
-            "ReductionAndSurchargeDetails",
-        ),
-    ))?;
+fn write_adjustments(writer: &mut XmlWriter, invoice: &Invoice) -> Result<(), WriterError> {
+    writer.write_event(Event::Start(BytesStart::new(
+        "ReductionAndSurchargeDetails",
+    )))?;
 
-    for adjustment in
-        &invoice.adjustments
-    {
-        write_adjustment(
-            writer,
-            adjustment,
-            &invoice.currency,
-        )?;
+    for adjustment in &invoice.adjustments {
+        write_adjustment(writer, adjustment, &invoice.currency)?;
     }
 
-    writer.write_event(Event::End(
-        BytesEnd::new(
-            "ReductionAndSurchargeDetails",
-        ),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("ReductionAndSurchargeDetails")))?;
 
     Ok(())
 }
@@ -675,56 +403,32 @@ fn write_adjustment(
     adjustment: &DocumentAdjustment,
     currency: &Currency,
 ) -> Result<(), WriterError> {
-    ensure_currency(
-        &adjustment.amount,
-        currency,
-        "adjustments.amount",
-    )?;
+    ensure_currency(&adjustment.amount, currency, "adjustments.amount")?;
 
     let base_amount = adjustment
         .base_amount
         .as_ref()
-        .ok_or(
-            WriterError::
-            MissingAdjustmentBaseAmount,
-        )?;
+        .ok_or(WriterError::MissingAdjustmentBaseAmount)?;
 
-    ensure_currency(
-        base_amount,
-        currency,
-        "adjustments.base_amount",
-    )?;
+    ensure_currency(base_amount, currency, "adjustments.base_amount")?;
 
     let tax = adjustment
         .tax
         .as_ref()
-        .ok_or(
-            WriterError::
-            MissingAdjustmentTax,
-        )?;
+        .ok_or(WriterError::MissingAdjustmentTax)?;
 
     let category = tax
         .category_code
         .as_deref()
-        .ok_or(
-            WriterError::
-            MissingAdjustmentTaxCategory,
-        )?;
+        .ok_or(WriterError::MissingAdjustmentTaxCategory)?;
 
-    let element_name =
-        match adjustment.kind {
-            AdjustmentKind::Allowance => {
-                "Reduction"
-            }
+    let element_name = match adjustment.kind {
+        AdjustmentKind::Allowance => "Reduction",
 
-            AdjustmentKind::Charge => {
-                "Surcharge"
-            }
-        };
+        AdjustmentKind::Charge => "Surcharge",
+    };
 
-    writer.write_event(Event::Start(
-        BytesStart::new(element_name),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new(element_name)))?;
 
     /*
      * ReductionAndSurchargeBaseType order:
@@ -746,15 +450,8 @@ fn write_adjustment(
         "adjustments.base_amount",
     )?;
 
-    if let Some(percentage) =
-        adjustment.percentage
-    {
-        write_decimal2(
-            writer,
-            "Percentage",
-            percentage,
-            "adjustments.percentage",
-        )?;
+    if let Some(percentage) = adjustment.percentage {
+        write_decimal2(writer, "Percentage", percentage, "adjustments.percentage")?;
     }
 
     write_decimal2(
@@ -765,26 +462,13 @@ fn write_adjustment(
     )?;
 
     if !adjustment.reasons.is_empty() {
-        let comment =
-            adjustment
-                .reasons
-                .join("; ");
+        let comment = adjustment.reasons.join("; ");
 
-        write_text(
-            writer,
-            "Comment",
-            &comment,
-        )?;
+        write_text(writer, "Comment", &comment)?;
     }
 
-    if let Some(reason_code) =
-        &adjustment.reason_code
-    {
-        write_text(
-            writer,
-            "Classification",
-            reason_code,
-        )?;
+    if let Some(reason_code) = &adjustment.reason_code {
+        write_text(writer, "Classification", reason_code)?;
     }
 
     /*
@@ -804,32 +488,19 @@ fn write_adjustment(
         "adjustments.tax",
     )?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new(element_name),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new(element_name)))?;
 
     Ok(())
 }
 
-fn write_tax(
-    writer: &mut XmlWriter,
-    invoice: &Invoice,
-) -> Result<(), WriterError> {
-    writer.write_event(Event::Start(
-        BytesStart::new("Tax"),
-    ))?;
+fn write_tax(writer: &mut XmlWriter, invoice: &Invoice) -> Result<(), WriterError> {
+    writer.write_event(Event::Start(BytesStart::new("Tax")))?;
 
     for vat in &invoice.vat_breakdown {
-        write_vat_breakdown(
-            writer,
-            vat,
-            &invoice.currency,
-        )?;
+        write_vat_breakdown(writer, vat, &invoice.currency)?;
     }
 
-    writer.write_event(Event::End(
-        BytesEnd::new("Tax"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("Tax")))?;
 
     Ok(())
 }
@@ -845,18 +516,12 @@ fn write_vat_breakdown(
         "vat_breakdown.taxable_amount",
     )?;
 
-    ensure_currency(
-        &vat.tax_amount,
-        currency,
-        "vat_breakdown.tax_amount",
-    )?;
+    ensure_currency(&vat.tax_amount, currency, "vat_breakdown.tax_amount")?;
 
     let category = vat
         .category_code
         .as_deref()
-        .ok_or(
-            WriterError::MissingVatCategory,
-        )?;
+        .ok_or(WriterError::MissingVatCategory)?;
 
     write_tax_item(
         writer,
@@ -876,38 +541,17 @@ fn write_tax_item(
     tax_amount: Option<Decimal>,
     field: &'static str,
 ) -> Result<(), WriterError> {
-    writer.write_event(Event::Start(
-        BytesStart::new("TaxItem"),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new("TaxItem")))?;
 
-    write_decimal2(
-        writer,
-        "TaxableAmount",
-        taxable_amount,
-        field,
-    )?;
+    write_decimal2(writer, "TaxableAmount", taxable_amount, field)?;
 
-    write_tax_percent(
-        writer,
-        rate,
-        category,
-        field,
-    )?;
+    write_tax_percent(writer, rate, category, field)?;
 
-    if let Some(tax_amount) =
-        tax_amount
-    {
-        write_decimal2(
-            writer,
-            "TaxAmount",
-            tax_amount,
-            field,
-        )?;
+    if let Some(tax_amount) = tax_amount {
+        write_decimal2(writer, "TaxAmount", tax_amount, field)?;
     }
 
-    writer.write_event(Event::End(
-        BytesEnd::new("TaxItem"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("TaxItem")))?;
 
     Ok(())
 }
@@ -918,70 +562,32 @@ fn write_tax_percent(
     category: &str,
     field: &'static str,
 ) -> Result<(), WriterError> {
-    let value = format_decimal(
-        rate,
-        2,
-        field,
-    )?;
+    let value = format_decimal(rate, 2, field)?;
 
-    let mut element =
-        BytesStart::new("TaxPercent");
+    let mut element = BytesStart::new("TaxPercent");
 
-    element.push_attribute((
-        "TaxCategoryCode",
-        category,
-    ));
+    element.push_attribute(("TaxCategoryCode", category));
 
-    writer.write_event(
-        Event::Start(element),
-    )?;
+    writer.write_event(Event::Start(element))?;
 
-    writer.write_event(Event::Text(
-        BytesText::new(&value),
-    ))?;
+    writer.write_event(Event::Text(BytesText::new(&value)))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new("TaxPercent"),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("TaxPercent")))?;
 
     Ok(())
 }
 
-fn write_payment(
-    writer: &mut XmlWriter,
-    payment: &PaymentInformation,
-) -> Result<(), WriterError> {
-    if payment.method
-        != PaymentMethod::BankTransfer
-    {
-        return Err(
-            WriterError::
-            UnsupportedPaymentMethod {
-                method: "other",
-            },
-        );
+fn write_payment(writer: &mut XmlWriter, payment: &PaymentInformation) -> Result<(), WriterError> {
+    if payment.method != PaymentMethod::BankTransfer {
+        return Err(WriterError::UnsupportedPaymentMethod { method: "other" });
     }
 
-    writer.write_event(Event::Start(
-        BytesStart::new(
-            "PaymentMethod",
-        ),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new("PaymentMethod")))?;
 
-    writer.write_event(Event::Start(
-        BytesStart::new(
-            "UniversalBankTransaction",
-        ),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new("UniversalBankTransaction")))?;
 
-    if let Some(account) =
-        &payment.payee_account
-    {
-        writer.write_event(Event::Start(
-            BytesStart::new(
-                "BeneficiaryAccount",
-            ),
-        ))?;
+    if let Some(account) = &payment.payee_account {
+        writer.write_event(Event::Start(BytesStart::new("BeneficiaryAccount")))?;
 
         /*
          * Our canonical account currently stores only
@@ -991,50 +597,22 @@ fn write_payment(
          * ebInterface representation. Otherwise use the
          * generic BankAccountNr element.
          */
-        if looks_like_iban(
-            &account.identifier,
-        ) {
-            write_text(
-                writer,
-                "IBAN",
-                &account.identifier,
-            )?;
+        if looks_like_iban(&account.identifier) {
+            write_text(writer, "IBAN", &account.identifier)?;
         } else {
-            write_text(
-                writer,
-                "BankAccountNr",
-                &account.identifier,
-            )?;
+            write_text(writer, "BankAccountNr", &account.identifier)?;
         }
 
-        writer.write_event(Event::End(
-            BytesEnd::new(
-                "BeneficiaryAccount",
-            ),
-        ))?;
+        writer.write_event(Event::End(BytesEnd::new("BeneficiaryAccount")))?;
     }
 
-    if let Some(reference) =
-        &payment.reference
-    {
-        write_text(
-            writer,
-            "PaymentReference",
-            reference,
-        )?;
+    if let Some(reference) = &payment.reference {
+        write_text(writer, "PaymentReference", reference)?;
     }
 
-    writer.write_event(Event::End(
-        BytesEnd::new(
-            "UniversalBankTransaction",
-        ),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("UniversalBankTransaction")))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new(
-            "PaymentMethod",
-        ),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new("PaymentMethod")))?;
 
     Ok(())
 }
@@ -1045,18 +623,9 @@ fn write_decimal2(
     value: Decimal,
     field: &'static str,
 ) -> Result<(), WriterError> {
-    let value =
-        format_decimal(
-            value,
-            2,
-            field,
-        )?;
+    let value = format_decimal(value, 2, field)?;
 
-    write_text(
-        writer,
-        element_name,
-        &value,
-    )
+    write_text(writer, element_name, &value)
 }
 
 fn write_decimal4(
@@ -1065,18 +634,9 @@ fn write_decimal4(
     value: Decimal,
     field: &'static str,
 ) -> Result<(), WriterError> {
-    let value =
-        format_decimal(
-            value,
-            4,
-            field,
-        )?;
+    let value = format_decimal(value, 4, field)?;
 
-    write_text(
-        writer,
-        element_name,
-        &value,
-    )
+    write_text(writer, element_name, &value)
 }
 
 fn format_decimal(
@@ -1085,33 +645,24 @@ fn format_decimal(
     field: &'static str,
 ) -> Result<String, WriterError> {
     if value.scale() <= max_scale {
-        return Ok(
-            value.to_string(),
-        );
+        return Ok(value.to_string());
     }
 
     /*
      * 10.000 is representable as Decimal2 even
      * though its current scale is 3.
      */
-    let normalized =
-        value.normalize();
+    let normalized = value.normalize();
 
     if normalized.scale() <= max_scale {
-        return Ok(
-            normalized.to_string(),
-        );
+        return Ok(normalized.to_string());
     }
 
-    Err(
-        WriterError::
-        TooManyDecimalPlaces {
-            field,
-            value:
-            value.to_string(),
-            max_scale,
-        },
-    )
+    Err(WriterError::TooManyDecimalPlaces {
+        field,
+        value: value.to_string(),
+        max_scale,
+    })
 }
 
 fn write_text(
@@ -1119,17 +670,11 @@ fn write_text(
     element_name: &'static str,
     value: &str,
 ) -> Result<(), WriterError> {
-    writer.write_event(Event::Start(
-        BytesStart::new(element_name),
-    ))?;
+    writer.write_event(Event::Start(BytesStart::new(element_name)))?;
 
-    writer.write_event(Event::Text(
-        BytesText::new(value),
-    ))?;
+    writer.write_event(Event::Text(BytesText::new(value)))?;
 
-    writer.write_event(Event::End(
-        BytesEnd::new(element_name),
-    ))?;
+    writer.write_event(Event::End(BytesEnd::new(element_name)))?;
 
     Ok(())
 }
@@ -1139,46 +684,28 @@ fn ensure_currency(
     invoice_currency: &Currency,
     field: &'static str,
 ) -> Result<(), WriterError> {
-    if money.currency
-        != *invoice_currency
-    {
-        return Err(
-            WriterError::
-            CurrencyMismatch {
-                field,
+    if money.currency != *invoice_currency {
+        return Err(WriterError::CurrencyMismatch {
+            field,
 
-                expected:
-                invoice_currency
-                    .as_str()
-                    .to_string(),
+            expected: invoice_currency.as_str().to_string(),
 
-                actual:
-                money
-                    .currency
-                    .as_str()
-                    .to_string(),
-            },
-        );
+            actual: money.currency.as_str().to_string(),
+        });
     }
 
     Ok(())
 }
 
-fn looks_like_iban(
-    value: &str,
-) -> bool {
-    let compact =
-        value
-            .chars()
-            .filter(|c| !c.is_whitespace())
-            .collect::<String>();
+fn looks_like_iban(value: &str) -> bool {
+    let compact = value
+        .chars()
+        .filter(|c| !c.is_whitespace())
+        .collect::<String>();
 
-    let bytes =
-        compact.as_bytes();
+    let bytes = compact.as_bytes();
 
-    if !(15..=34)
-        .contains(&bytes.len())
-    {
+    if !(15..=34).contains(&bytes.len()) {
         return false;
     }
 
@@ -1186,9 +713,5 @@ fn looks_like_iban(
         && bytes[1].is_ascii_alphabetic()
         && bytes[2].is_ascii_digit()
         && bytes[3].is_ascii_digit()
-        && bytes[4..]
-        .iter()
-        .all(|byte| {
-            byte.is_ascii_alphanumeric()
-        })
+        && bytes[4..].iter().all(|byte| byte.is_ascii_alphanumeric())
 }

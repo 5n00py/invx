@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 
+pub mod convert;
 pub mod input;
 pub mod inspect;
 pub mod to_json;
@@ -26,4 +27,7 @@ pub enum Command {
 
     /// Convert an invoice to canonical JSON
     ToJson(to_json::ToJsonArgs),
+
+    /// Convert an invoice to another format
+    Convert(convert::ConvertArgs),
 }

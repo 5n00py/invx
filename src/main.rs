@@ -26,5 +26,7 @@ fn run() -> Result<ExitCode, Box<dyn Error>> {
         Command::Validate(args) => cli::validate::run(&args),
 
         Command::ToJson(args) => cli::to_json::run(&args),
+
+        Command::Convert(args) => cli::convert::run(&args),
     }
 }
