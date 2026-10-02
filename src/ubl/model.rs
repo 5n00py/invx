@@ -160,6 +160,24 @@ pub struct UblOrderReference {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+pub struct UblFinancialAccount {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct UblPaymentMeans {
+    #[serde(rename = "PaymentMeansCode")]
+    pub payment_means_code: String,
+
+    #[serde(rename = "PaymentID")]
+    pub payment_id: Option<String>,
+
+    #[serde(rename = "PayeeFinancialAccount")]
+    pub payee_financial_account: Option<UblFinancialAccount>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct UblInvoice {
     #[serde(rename = "ID")]
     pub id: String,
@@ -187,4 +205,7 @@ pub struct UblInvoice {
 
     #[serde(rename = "InvoiceLine")]
     pub invoice_lines: Vec<UblInvoiceLine>,
+
+    #[serde(rename = "PaymentMeans", default)]
+    pub payment_means: Vec<UblPaymentMeans>,
 }

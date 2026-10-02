@@ -87,6 +87,21 @@ fn print_invoice(invoice: &Invoice) {
         );
     }
 
+    if let Some(payment) = &invoice.payment {
+        println!();
+
+        println!("Payment");
+        println!("  Means code: {}", payment.means_code);
+
+        if let Some(reference) = &payment.reference {
+            println!("  Reference:  {reference}");
+        }
+
+        if let Some(account) = &payment.payee_account {
+            println!("  Account:    {}", account.identifier);
+        }
+    }
+
     println!();
 
     println!("Totals");

@@ -5,10 +5,10 @@ use thiserror::Error;
 
 use crate::domain::{
     Address, Currency, Invoice, InvoiceId, InvoiceLine, InvoiceTotals, Money, Party,
-    TaxInformation, VatBreakdown,
+    PaymentAccount, PaymentInformation, TaxInformation, VatBreakdown,
 };
 
-use super::model::{UblAmount, UblInvoice, UblParty};
+use super::model::{UblAmount, UblInvoice, UblParty, UblPaymentMeans};
 
 #[derive(Debug, Error)]
 pub enum MappingError {
@@ -24,6 +24,9 @@ pub enum MappingError {
         expected: String,
         actual: String,
     },
+
+    #[error("multiple payment means are not yet supported")]
+    MultiplePaymentMeans,
 }
 
 fn parse_date(value: &str, field: &'static str) -> Result<NaiveDate, MappingError> {
@@ -84,6 +87,18 @@ fn map_party(source: UblParty) -> Party {
         name: source.party_name.name,
         address,
         vat_id,
+    }
+}
+
+fn map_payment(source: UblPaymentMeans) -> PaymentInformation {
+    let payee_account = source
+        .payee_financial_account
+        .and_then(|account| account.id.map(|identifier| PaymentAccount { identifier }));
+
+    PaymentInformation {
+        means_code: source.payment_means_code,
+        reference: source.payment_id,
+        payee_account,
     }
 }
 
@@ -176,6 +191,16 @@ impl TryFrom<UblInvoice> for Invoice {
             )?,
         };
 
+        let payment = match source.payment_means.len() {
+            0 => None,
+
+            1 => source.payment_means.into_iter().next().map(map_payment),
+
+            _ => {
+                return Err(MappingError::MultiplePaymentMeans);
+            }
+        };
+
         Ok(Invoice {
             id: InvoiceId::new(source.id),
             issue_date,
@@ -188,6 +213,8 @@ impl TryFrom<UblInvoice> for Invoice {
 
             lines,
             vat_breakdown,
+
+            payment,
 
             totals,
         })

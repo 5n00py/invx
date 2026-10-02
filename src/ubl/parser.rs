@@ -83,5 +83,21 @@ mod tests {
                 .map(|reference| reference.id.as_str()),
             Some("PO-4711")
         );
+
+        assert_eq!(invoice.payment_means.len(), 1);
+
+        let payment = &invoice.payment_means[0];
+
+        assert_eq!(payment.payment_means_code, "58");
+
+        assert_eq!(payment.payment_id.as_deref(), Some("2026-00421"));
+
+        assert_eq!(
+            payment
+                .payee_financial_account
+                .as_ref()
+                .and_then(|account| account.id.as_deref()),
+            Some("AT611904300234573201")
+        );
     }
 }

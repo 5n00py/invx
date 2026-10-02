@@ -64,6 +64,8 @@ fn can_build_a_complete_invoice_through_the_public_api() {
         issue_date: NaiveDate::from_ymd_opt(2026, 9, 30).unwrap(),
         currency: Currency::new("EUR"),
 
+        payment: None,
+
         seller,
         buyer,
 

@@ -60,6 +60,15 @@
         </cac:Party>
     </cac:AccountingCustomerParty>
 
+    <cac:PaymentMeans>
+        <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
+        <cbc:PaymentID>2026-00421</cbc:PaymentID>
+
+        <cac:PayeeFinancialAccount>
+            <cbc:ID>AT611904300234573201</cbc:ID>
+        </cac:PayeeFinancialAccount>
+    </cac:PaymentMeans>
+
     <cac:TaxTotal>
         <cbc:TaxAmount currencyID="EUR">1900.00</cbc:TaxAmount>
 

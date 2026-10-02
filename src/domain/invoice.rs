@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
-use super::{Currency, Money, Party, TaxInformation, VatBreakdown};
+use super::{Currency, Money, Party, PaymentInformation, TaxInformation, VatBreakdown};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvoiceId(String);
@@ -60,6 +60,8 @@ pub struct Invoice {
 
     pub lines: Vec<InvoiceLine>,
     pub vat_breakdown: Vec<VatBreakdown>,
+
+    pub payment: Option<PaymentInformation>,
 
     pub totals: InvoiceTotals,
 }

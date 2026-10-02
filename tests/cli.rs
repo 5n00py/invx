@@ -68,4 +68,7 @@ fn inspect_prints_invoice_summary() {
     assert!(stdout.contains("9500.00"));
     assert!(stdout.contains("11400.00"));
     assert!(stdout.contains("PO-4711"));
+    assert!(stdout.contains("Payment"));
+    assert!(stdout.contains("2026-00421"));
+    assert!(stdout.contains("AT611904300234573201"));
 }
