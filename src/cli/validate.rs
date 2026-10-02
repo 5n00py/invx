@@ -2,7 +2,7 @@ use std::{error::Error, path::PathBuf, process::ExitCode};
 
 use invx::validation::{Severity, ValidationProfile, validate};
 
-use super::input::load_ubl_invoice;
+use super::input::load_invoice;
 
 #[derive(Debug, clap::Args)]
 pub struct ValidateArgs {
@@ -40,7 +40,7 @@ impl ProfileArg {
 }
 
 pub fn run(args: &ValidateArgs) -> Result<ExitCode, Box<dyn Error>> {
-    let invoice = load_ubl_invoice(&args.file)?;
+    let invoice = load_invoice(&args.file)?;
 
     let result = validate(&invoice, args.profile.into());
 

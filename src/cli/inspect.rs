@@ -2,7 +2,7 @@ use std::{error::Error, path::PathBuf, process::ExitCode};
 
 use invx::domain::{Address, AdjustmentKind, Invoice, PaymentMethod};
 
-use super::input::load_ubl_invoice;
+use super::input::load_invoice;
 
 #[derive(Debug, clap::Args)]
 pub struct InspectArgs {
@@ -11,7 +11,7 @@ pub struct InspectArgs {
 }
 
 pub fn run(args: &InspectArgs) -> Result<ExitCode, Box<dyn Error>> {
-    let invoice = load_ubl_invoice(&args.file)?;
+    let invoice = load_invoice(&args.file)?;
 
     print_invoice(&invoice);
 
