@@ -154,6 +154,12 @@ pub struct UblInvoiceLine {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+pub struct UblOrderReference {
+    #[serde(rename = "ID")]
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct UblInvoice {
     #[serde(rename = "ID")]
     pub id: String,
@@ -163,6 +169,9 @@ pub struct UblInvoice {
 
     #[serde(rename = "DocumentCurrencyCode")]
     pub document_currency_code: String,
+
+    #[serde(rename = "OrderReference")]
+    pub order_reference: Option<UblOrderReference>,
 
     #[serde(rename = "AccountingSupplierParty")]
     pub accounting_supplier_party: UblPartyContainer,

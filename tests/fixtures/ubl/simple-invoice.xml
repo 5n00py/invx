@@ -8,6 +8,10 @@
     <cbc:IssueDate>2026-09-30</cbc:IssueDate>
     <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
 
+    <cac:OrderReference>
+        <cbc:ID>PO-4711</cbc:ID>
+    </cac:OrderReference>
+
     <cac:AccountingSupplierParty>
         <cac:Party>
             <cac:PartyName>

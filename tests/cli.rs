@@ -67,4 +67,5 @@ fn inspect_prints_invoice_summary() {
     assert!(stdout.contains("Integration consulting"));
     assert!(stdout.contains("9500.00"));
     assert!(stdout.contains("11400.00"));
+    assert!(stdout.contains("PO-4711"));
 }

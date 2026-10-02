@@ -24,6 +24,10 @@ fn print_invoice(invoice: &Invoice) {
     println!("  Issue date: {}", invoice.issue_date);
     println!("  Currency:   {}", invoice.currency.as_str());
 
+    if let Some(order_reference) = &invoice.order_reference {
+        println!("  Order ref:  {order_reference}");
+    }
+
     println!();
 
     println!("Seller");

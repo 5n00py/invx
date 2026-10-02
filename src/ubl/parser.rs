@@ -75,5 +75,13 @@ mod tests {
             seller.party_tax_schemes[0].company_id.as_deref(),
             Some("ATU12345678")
         );
+
+        assert_eq!(
+            invoice
+                .order_reference
+                .as_ref()
+                .map(|reference| reference.id.as_str()),
+            Some("PO-4711")
+        );
     }
 }

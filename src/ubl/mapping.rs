@@ -184,7 +184,7 @@ impl TryFrom<UblInvoice> for Invoice {
             seller,
             buyer,
 
-            order_reference: None,
+            order_reference: source.order_reference.map(|reference| reference.id),
 
             lines,
             vat_breakdown,
