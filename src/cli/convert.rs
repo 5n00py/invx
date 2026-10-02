@@ -2,12 +2,14 @@ use std::{error::Error, fs, path::PathBuf, process::ExitCode};
 
 use clap::ValueEnum;
 
-use invx::{ebinterface::writer as ebinterface_writer, ubl::writer as ubl_writer};
+use invx::conversion::{
+    self, ConversionDiagnostics, ConversionError, ConversionImpact, TargetFormat,
+};
 
 use super::input::load_invoice;
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum TargetFormat {
+pub enum TargetFormatArg {
     #[value(name = "ubl")]
     Ubl,
 
@@ -15,11 +17,21 @@ pub enum TargetFormat {
     EbInterface6p1,
 }
 
+impl From<TargetFormatArg> for TargetFormat {
+    fn from(value: TargetFormatArg) -> Self {
+        match value {
+            TargetFormatArg::Ubl => Self::Ubl,
+
+            TargetFormatArg::EbInterface6p1 => Self::EbInterface6p1,
+        }
+    }
+}
+
 #[derive(Debug, clap::Args)]
 pub struct ConvertArgs {
     /// Target invoice format
     #[arg(long, value_enum)]
-    pub to: TargetFormat,
+    pub to: TargetFormatArg,
 
     /// Input invoice
     pub file: PathBuf,
@@ -32,21 +44,56 @@ pub struct ConvertArgs {
 pub fn run(args: &ConvertArgs) -> Result<ExitCode, Box<dyn Error>> {
     let invoice = load_invoice(&args.file)?;
 
-    let xml = match args.to {
-        TargetFormat::Ubl => ubl_writer::write_invoice(&invoice)?,
+    let target = TargetFormat::from(args.to);
 
-        TargetFormat::EbInterface6p1 => ebinterface_writer::write_invoice(&invoice)?,
-    };
+    match conversion::convert(&invoice, target) {
+        Ok(output) => {
+            print_diagnostics(&output.diagnostics);
 
-    match &args.output {
-        Some(path) => {
-            fs::write(path, xml)?;
+            match &args.output {
+                Some(path) => {
+                    fs::write(path, output.xml)?;
+                }
+
+                None => {
+                    print!("{}", output.xml);
+                }
+            }
+
+            Ok(ExitCode::SUCCESS)
         }
 
-        None => {
-            print!("{xml}");
+        Err(ConversionError::Incompatible {
+            target,
+            diagnostics,
+        }) => {
+            eprintln!("CANNOT CONVERT to {target}");
+
+            eprintln!();
+
+            print_diagnostics(&diagnostics);
+
+            Ok(ExitCode::from(1))
         }
+
+        Err(error) => Err(Box::new(error)),
     }
+}
 
-    Ok(ExitCode::SUCCESS)
+fn print_diagnostics(diagnostics: &ConversionDiagnostics) {
+    for issue in &diagnostics.issues {
+        let impact = match issue.impact {
+            ConversionImpact::Blocking => "BLOCKING",
+
+            ConversionImpact::Lossy => "LOSSY",
+
+            ConversionImpact::Informational => "INFO",
+        };
+
+        eprintln!("{impact} {} [{}]", issue.code, issue.path,);
+
+        eprintln!("  {}", issue.message);
+
+        eprintln!();
+    }
 }
