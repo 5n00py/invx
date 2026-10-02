@@ -1,4 +1,9 @@
-use invx::{domain::Invoice, ubl::parser::parse_invoice, validation::validate_invoice};
+use rust_decimal::Decimal;
+
+use invx::{
+    domain::Invoice, ubl::parser::parse_invoice, validation::validate_core,
+    validation::validate_en16931_subset,
+};
 
 const SIMPLE_INVOICE: &str = include_str!("fixtures/ubl/simple-invoice.xml");
 
@@ -8,7 +13,7 @@ fn valid_ubl_invoice_passes_core_validation() {
 
     let invoice = Invoice::try_from(ubl).expect("UBL should map");
 
-    let result = validate_invoice(&invoice);
+    let result = validate_core(&invoice);
 
     assert!(
         result.is_valid(),
@@ -16,8 +21,6 @@ fn valid_ubl_invoice_passes_core_validation() {
         result.violations
     );
 }
-
-use rust_decimal::Decimal;
 
 #[test]
 fn detects_inconsistent_invoice_total() {
@@ -27,7 +30,7 @@ fn detects_inconsistent_invoice_total() {
 
     invoice.totals.gross_amount.amount = Decimal::new(1_130_000, 2);
 
-    let result = validate_invoice(&invoice);
+    let result = validate_core(&invoice);
 
     assert!(!result.is_valid());
 
@@ -37,4 +40,63 @@ fn detects_inconsistent_invoice_total() {
             .iter()
             .any(|violation| violation.code == "CORE-002")
     );
+}
+
+#[test]
+fn credit_transfer_requires_payment_account() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    let payment = invoice
+        .payment
+        .as_mut()
+        .expect("invoice should have payment information");
+
+    payment.payee_account = None;
+
+    let result = validate_en16931_subset(&invoice);
+
+    assert!(!result.is_valid());
+
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|violation| violation.code == "BR-61")
+    );
+}
+
+#[test]
+fn credit_transfer_with_payment_account_is_valid() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    let result = validate_en16931_subset(&invoice);
+
+    assert!(
+        result.is_valid(),
+        "expected no violations, got: {:?}",
+        result.violations
+    );
+}
+
+#[test]
+fn non_credit_transfer_does_not_require_payment_account() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    let payment = invoice
+        .payment
+        .as_mut()
+        .expect("invoice should have payment information");
+
+    payment.means_code = "10".to_string();
+    payment.payee_account = None;
+
+    let result = validate_en16931_subset(&invoice);
+
+    assert!(result.is_valid());
 }

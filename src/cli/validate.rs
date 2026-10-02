@@ -1,6 +1,6 @@
 use std::{error::Error, path::PathBuf, process::ExitCode};
 
-use invx::validation::{Severity, validate_invoice};
+use invx::validation::{Severity, validate_core};
 
 use super::input::load_ubl_invoice;
 
@@ -13,7 +13,7 @@ pub struct ValidateArgs {
 pub fn run(args: &ValidateArgs) -> Result<ExitCode, Box<dyn Error>> {
     let invoice = load_ubl_invoice(&args.file)?;
 
-    let result = validate_invoice(&invoice);
+    let result = validate_core(&invoice);
 
     if result.is_valid() {
         println!("VALID: {}", args.file.display());
