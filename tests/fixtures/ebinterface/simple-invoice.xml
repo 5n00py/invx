@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice
+        xmlns="http://www.ebinterface.at/schema/6p1/"
+        GeneratingSystem="invx"
+        DocumentType="Invoice"
+        InvoiceCurrency="EUR">
+
+    <InvoiceNumber>2026-00421</InvoiceNumber>
+    <InvoiceDate>2026-09-30</InvoiceDate>
+
+    <Biller>
+        <VATIdentificationNumber>ATU12345678</VATIdentificationNumber>
+
+        <Address>
+            <Name>Example Supplier GmbH</Name>
+            <Street>Supplier Street 1</Street>
+            <Town>Vienna</Town>
+            <ZIP>1010</ZIP>
+            <Country CountryCode="AT">Austria</Country>
+        </Address>
+    </Biller>
+
+    <InvoiceRecipient>
+        <VATIdentificationNumber>ATU87654321</VATIdentificationNumber>
+
+        <OrderReference>
+            <OrderID>PO-4711</OrderID>
+        </OrderReference>
+
+        <Address>
+            <Name>Example Logistics GmbH</Name>
+            <Street>Customer Street 10</Street>
+            <Town>Vienna</Town>
+            <ZIP>1020</ZIP>
+            <Country CountryCode="AT">Austria</Country>
+        </Address>
+    </InvoiceRecipient>
+
+    <Details>
+        <ItemList>
+            <ListLineItem>
+                <PositionNumber>1</PositionNumber>
+                <Description>Integration consulting</Description>
+                <Quantity Unit="HUR">10</Quantity>
+                <UnitPrice>950.00</UnitPrice>
+
+                <TaxItem>
+                    <TaxableAmount>9500.00</TaxableAmount>
+                    <TaxPercent TaxCategoryCode="S">20.00</TaxPercent>
+                    <TaxAmount>1900.00</TaxAmount>
+                </TaxItem>
+
+                <LineItemAmount>9500.00</LineItemAmount>
+            </ListLineItem>
+        </ItemList>
+    </Details>
+
+    <Tax>
+        <TaxItem>
+            <TaxableAmount>9500.00</TaxableAmount>
+            <TaxPercent TaxCategoryCode="S">20.00</TaxPercent>
+            <TaxAmount>1900.00</TaxAmount>
+        </TaxItem>
+    </Tax>
+
+    <TotalGrossAmount>11400.00</TotalGrossAmount>
+    <PayableAmount>11400.00</PayableAmount>
+
+    <PaymentMethod>
+        <UniversalBankTransaction>
+            <BeneficiaryAccount>
+                <IBAN>AT611904300234573201</IBAN>
+            </BeneficiaryAccount>
+            <PaymentReference>2026-00421</PaymentReference>
+        </UniversalBankTransaction>
+    </PaymentMethod>
+
+</Invoice>
