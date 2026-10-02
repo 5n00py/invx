@@ -79,12 +79,25 @@ fn print_invoice(invoice: &Invoice) {
     println!("VAT");
 
     for vat in &invoice.vat_breakdown {
-        println!(
-            "  {}%: {} {}",
-            vat.rate,
-            vat.tax_amount.amount,
-            vat.tax_amount.currency.as_str()
-        );
+        match &vat.category_code {
+            Some(category) => {
+                println!(
+                    "  {category} / {}%: {} {}",
+                    vat.rate,
+                    vat.tax_amount.amount,
+                    vat.tax_amount.currency.as_str()
+                );
+            }
+
+            None => {
+                println!(
+                    "  {}%: {} {}",
+                    vat.rate,
+                    vat.tax_amount.amount,
+                    vat.tax_amount.currency.as_str()
+                );
+            }
+        }
     }
 
     if let Some(payment) = &invoice.payment {

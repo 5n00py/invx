@@ -100,3 +100,21 @@ fn non_credit_transfer_does_not_require_payment_account() {
 
     assert!(result.is_valid());
 }
+
+#[test]
+fn detects_inconsistent_vat_breakdown_total() {
+    let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
+
+    let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
+
+    invoice.vat_breakdown[0].tax_amount.amount = Decimal::new(180_000, 2);
+
+    let result = validate(&invoice, ValidationProfile::Core);
+
+    assert!(
+        result
+            .violations
+            .iter()
+            .any(|violation| violation.code == "CORE-006")
+    );
+}

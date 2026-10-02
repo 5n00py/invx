@@ -142,6 +142,8 @@ impl TryFrom<UblInvoice> for Invoice {
                 )?,
 
                 tax: TaxInformation {
+                    category_code: line.item.classified_tax_category.id,
+
                     rate: parse_decimal(
                         &line.item.classified_tax_category.percent,
                         "InvoiceLine.Item.ClassifiedTaxCategory.Percent",
@@ -154,6 +156,8 @@ impl TryFrom<UblInvoice> for Invoice {
 
         for subtotal in source.tax_total.tax_subtotals {
             vat_breakdown.push(VatBreakdown {
+                category_code: subtotal.tax_category.id,
+
                 rate: parse_decimal(
                     &subtotal.tax_category.percent,
                     "TaxSubtotal.TaxCategory.Percent",

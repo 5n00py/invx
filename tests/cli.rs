@@ -64,13 +64,18 @@ fn inspect_prints_invoice_summary() {
     assert!(stdout.contains("2026-00421"));
     assert!(stdout.contains("Example Supplier GmbH"));
     assert!(stdout.contains("Example Logistics GmbH"));
+
     assert!(stdout.contains("Integration consulting"));
+    assert!(stdout.contains("Technical training"));
+
     assert!(stdout.contains("9500.00"));
-    assert!(stdout.contains("11400.00"));
-    assert!(stdout.contains("PO-4711"));
-    assert!(stdout.contains("Payment"));
-    assert!(stdout.contains("2026-00421"));
-    assert!(stdout.contains("AT611904300234573201"));
+    assert!(stdout.contains("1000.00"));
+
+    assert!(stdout.contains("2000.00"));
+    assert!(stdout.contains("12500.00"));
+
+    assert!(stdout.contains("S / 20%"));
+    assert!(stdout.contains("S / 10%"));
 }
 
 #[test]

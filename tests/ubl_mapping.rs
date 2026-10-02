@@ -17,7 +17,7 @@ fn maps_ubl_invoice_into_canonical_invoice() {
 
     assert_eq!(invoice.buyer.name, "Example Logistics GmbH");
 
-    assert_eq!(invoice.lines.len(), 1);
+    assert_eq!(invoice.lines.len(), 2);
 
     let line = &invoice.lines[0];
 
@@ -31,13 +31,13 @@ fn maps_ubl_invoice_into_canonical_invoice() {
 
     assert_eq!(line.tax.rate, Decimal::new(20, 0));
 
-    assert_eq!(invoice.vat_breakdown.len(), 1);
+    assert_eq!(invoice.vat_breakdown.len(), 2);
 
-    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(950000, 2));
+    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(1050000, 2));
 
-    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(190000, 2));
+    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(200000, 2));
 
-    assert_eq!(invoice.totals.gross_amount.amount, Decimal::new(1140000, 2));
+    assert_eq!(invoice.totals.gross_amount.amount, Decimal::new(1250000, 2));
 
     assert!(invoice.totals.is_arithmetically_consistent());
 
@@ -76,4 +76,37 @@ fn maps_ubl_invoice_into_canonical_invoice() {
         .expect("payment should contain a payee account");
 
     assert_eq!(account.identifier, "AT611904300234573201");
+
+    assert_eq!(invoice.lines.len(), 2);
+
+    let first = &invoice.lines[0];
+
+    assert_eq!(first.tax.category_code.as_deref(), Some("S"));
+
+    assert_eq!(first.tax.rate, Decimal::new(20, 0));
+
+    let second = &invoice.lines[1];
+
+    assert_eq!(second.description, "Technical training");
+
+    assert_eq!(second.quantity, Decimal::new(2, 0));
+
+    assert_eq!(second.unit_price.amount, Decimal::new(50_000, 2));
+
+    assert_eq!(second.net_amount.amount, Decimal::new(100_000, 2));
+
+    assert_eq!(second.tax.category_code.as_deref(), Some("S"));
+
+    assert_eq!(second.tax.rate, Decimal::new(10, 0));
+
+    assert_eq!(invoice.vat_breakdown.len(), 2);
+
+    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(1_050_000, 2));
+
+    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(200_000, 2));
+
+    assert_eq!(
+        invoice.totals.gross_amount.amount,
+        Decimal::new(1_250_000, 2)
+    );
 }

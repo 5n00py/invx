@@ -42,11 +42,13 @@ fn can_build_a_complete_invoice_through_the_public_api() {
         unit_price: eur(95_000, 2),
         net_amount: eur(950_000, 2),
         tax: TaxInformation {
+            category_code: Some("S".to_string()),
             rate: Decimal::new(20, 0),
         },
     };
 
     let vat = VatBreakdown {
+        category_code: Some("S".to_string()),
         rate: Decimal::new(20, 0),
         taxable_amount: eur(950_000, 2),
         tax_amount: eur(190_000, 2),
@@ -85,8 +87,11 @@ fn can_build_a_complete_invoice_through_the_public_api() {
 
     assert_eq!(invoice.lines.len(), 1);
     assert_eq!(invoice.lines[0].description, "Integration consulting");
+    assert_eq!(invoice.lines[0].tax.category_code.as_deref(), Some("S"));
+    assert_eq!(invoice.lines[0].tax.rate, Decimal::new(20, 0));
 
     assert_eq!(invoice.vat_breakdown.len(), 1);
+    assert_eq!(invoice.vat_breakdown[0].category_code.as_deref(), Some("S"));
     assert_eq!(invoice.vat_breakdown[0].rate, Decimal::new(20, 0));
 
     assert!(invoice.totals.is_arithmetically_consistent());

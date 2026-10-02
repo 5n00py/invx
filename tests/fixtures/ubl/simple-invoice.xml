@@ -70,23 +70,42 @@
     </cac:PaymentMeans>
 
     <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="EUR">1900.00</cbc:TaxAmount>
+        <cbc:TaxAmount currencyID="EUR">2000.00</cbc:TaxAmount>
 
         <cac:TaxSubtotal>
             <cbc:TaxableAmount currencyID="EUR">9500.00</cbc:TaxableAmount>
             <cbc:TaxAmount currencyID="EUR">1900.00</cbc:TaxAmount>
 
             <cac:TaxCategory>
+                <cbc:ID>S</cbc:ID>
                 <cbc:Percent>20</cbc:Percent>
+
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:TaxCategory>
+        </cac:TaxSubtotal>
+
+        <cac:TaxSubtotal>
+            <cbc:TaxableAmount currencyID="EUR">1000.00</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="EUR">100.00</cbc:TaxAmount>
+
+            <cac:TaxCategory>
+                <cbc:ID>S</cbc:ID>
+                <cbc:Percent>10</cbc:Percent>
+
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
             </cac:TaxCategory>
         </cac:TaxSubtotal>
     </cac:TaxTotal>
 
     <cac:LegalMonetaryTotal>
-        <cbc:LineExtensionAmount currencyID="EUR">9500.00</cbc:LineExtensionAmount>
-        <cbc:TaxExclusiveAmount currencyID="EUR">9500.00</cbc:TaxExclusiveAmount>
-        <cbc:TaxInclusiveAmount currencyID="EUR">11400.00</cbc:TaxInclusiveAmount>
-        <cbc:PayableAmount currencyID="EUR">11400.00</cbc:PayableAmount>
+        <cbc:LineExtensionAmount currencyID="EUR">10500.00</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="EUR">10500.00</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="EUR">12500.00</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="EUR">12500.00</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
 
     <cac:InvoiceLine>
@@ -98,12 +117,40 @@
             <cbc:Description>Integration consulting</cbc:Description>
 
             <cac:ClassifiedTaxCategory>
+                <cbc:ID>S</cbc:ID>
                 <cbc:Percent>20</cbc:Percent>
+
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
             </cac:ClassifiedTaxCategory>
         </cac:Item>
 
         <cac:Price>
             <cbc:PriceAmount currencyID="EUR">950.00</cbc:PriceAmount>
+        </cac:Price>
+    </cac:InvoiceLine>
+
+    <cac:InvoiceLine>
+        <cbc:ID>2</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="EUR">1000.00</cbc:LineExtensionAmount>
+
+        <cac:Item>
+            <cbc:Description>Technical training</cbc:Description>
+
+            <cac:ClassifiedTaxCategory>
+                <cbc:ID>S</cbc:ID>
+                <cbc:Percent>10</cbc:Percent>
+
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:ClassifiedTaxCategory>
+        </cac:Item>
+
+        <cac:Price>
+            <cbc:PriceAmount currencyID="EUR">500.00</cbc:PriceAmount>
         </cac:Price>
     </cac:InvoiceLine>
 

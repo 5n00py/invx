@@ -80,8 +80,14 @@ pub struct UblPartyContainer {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct UblTaxCategory {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+
     #[serde(rename = "Percent")]
     pub percent: String,
+
+    #[serde(rename = "TaxScheme")]
+    pub tax_scheme: Option<UblTaxScheme>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

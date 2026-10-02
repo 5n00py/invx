@@ -119,6 +119,29 @@ impl ValidationRule for CurrencyConsistency {
     }
 }
 
+pub struct VatBreakdownEqualsTaxTotal;
+
+impl ValidationRule for VatBreakdownEqualsTaxTotal {
+    fn validate(&self, invoice: &Invoice) -> Vec<Violation> {
+        let vat_total: Decimal = invoice
+            .vat_breakdown
+            .iter()
+            .map(|vat| vat.tax_amount.amount)
+            .sum();
+
+        if vat_total != invoice.totals.tax_amount.amount {
+            return vec![Violation {
+                code: "CORE-006".to_string(),
+                severity: Severity::Error,
+                message: "Sum of VAT breakdown amounts must equal total tax amount".to_string(),
+                field: Some("totals.tax_amount".to_string()),
+            }];
+        }
+
+        Vec::new()
+    }
+}
+
 pub(crate) fn validate_core(invoice: &Invoice) -> ValidationResult {
     let rules: Vec<Box<dyn ValidationRule>> = vec![
         Box::new(InvoiceHasLines),
@@ -126,6 +149,7 @@ pub(crate) fn validate_core(invoice: &Invoice) -> ValidationResult {
         Box::new(GrossEqualsPayable),
         Box::new(LineNetAmountsEqualInvoiceNet),
         Box::new(CurrencyConsistency),
+        Box::new(VatBreakdownEqualsTaxTotal),
     ];
 
     let mut result = ValidationResult::default();
