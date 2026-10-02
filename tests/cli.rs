@@ -43,3 +43,28 @@ fn validate_fails_for_invalid_invoice() {
     assert!(stdout.contains("INVALID"));
     assert!(stdout.contains("CORE-002"));
 }
+
+#[test]
+fn inspect_prints_invoice_summary() {
+    let output = Command::new(env!("CARGO_BIN_EXE_invx"))
+        .arg("inspect")
+        .arg(fixture("simple-invoice.xml"))
+        .output()
+        .expect("invx should run");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(stdout.contains("2026-00421"));
+    assert!(stdout.contains("Example Supplier GmbH"));
+    assert!(stdout.contains("Example Logistics GmbH"));
+    assert!(stdout.contains("Integration consulting"));
+    assert!(stdout.contains("9500.00"));
+    assert!(stdout.contains("11400.00"));
+}

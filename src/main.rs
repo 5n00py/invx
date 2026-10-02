@@ -21,6 +21,7 @@ fn run() -> Result<ExitCode, Box<dyn Error>> {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Inspect(args) => cli::inspect::run(&args),
         Command::Validate(args) => cli::validate::run(&args),
     }
 }

@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 pub mod input;
+pub mod inspect;
 pub mod validate;
 
 #[derive(Debug, Parser)]
@@ -16,6 +17,9 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Inspect an invoice
+    Inspect(inspect::InspectArgs),
+
     /// Validate an invoice
     Validate(validate::ValidateArgs),
 }
