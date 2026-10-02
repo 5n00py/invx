@@ -47,5 +47,33 @@ mod tests {
             invoice.legal_monetary_total.payable_amount.value,
             "11400.00"
         );
+
+        let seller = &invoice.accounting_supplier_party.party;
+
+        let address = seller
+            .postal_address
+            .as_ref()
+            .expect("seller should have an address");
+
+        assert_eq!(address.street_name.as_deref(), Some("Supplier Street 1"));
+
+        assert_eq!(address.city_name.as_deref(), Some("Vienna"));
+
+        assert_eq!(address.postal_zone.as_deref(), Some("1010"));
+
+        assert_eq!(
+            address
+                .country
+                .as_ref()
+                .and_then(|country| country.identification_code.as_deref()),
+            Some("AT")
+        );
+
+        assert_eq!(seller.party_tax_schemes.len(), 1);
+
+        assert_eq!(
+            seller.party_tax_schemes[0].company_id.as_deref(),
+            Some("ATU12345678")
+        );
     }
 }

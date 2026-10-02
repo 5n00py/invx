@@ -1,6 +1,6 @@
 use std::{error::Error, path::PathBuf, process::ExitCode};
 
-use invx::domain::Invoice;
+use invx::domain::{Address, Invoice};
 
 use super::input::load_ubl_invoice;
 
@@ -29,6 +29,10 @@ fn print_invoice(invoice: &Invoice) {
     println!("Seller");
     println!("  {}", invoice.seller.name);
 
+    if let Some(address) = &invoice.seller.address {
+        print_address(address);
+    }
+
     if let Some(vat_id) = &invoice.seller.vat_id {
         println!("  VAT ID: {vat_id}");
     }
@@ -37,6 +41,10 @@ fn print_invoice(invoice: &Invoice) {
 
     println!("Buyer");
     println!("  {}", invoice.buyer.name);
+
+    if let Some(address) = &invoice.buyer.address {
+        print_address(address);
+    }
 
     if let Some(vat_id) = &invoice.buyer.vat_id {
         println!("  VAT ID: {vat_id}");
@@ -98,4 +106,28 @@ fn print_invoice(invoice: &Invoice) {
         invoice.totals.payable_amount.amount,
         invoice.totals.payable_amount.currency.as_str()
     );
+}
+
+fn print_address(address: &Address) {
+    if let Some(street) = &address.street {
+        println!("  {street}");
+    }
+
+    let city_line = match (&address.postal_code, &address.city) {
+        (Some(postal_code), Some(city)) => Some(format!("{postal_code} {city}")),
+
+        (Some(postal_code), None) => Some(postal_code.clone()),
+
+        (None, Some(city)) => Some(city.clone()),
+
+        (None, None) => None,
+    };
+
+    if let Some(city_line) = city_line {
+        println!("  {city_line}");
+    }
+
+    if let Some(country_code) = &address.country_code {
+        println!("  {country_code}");
+    }
 }

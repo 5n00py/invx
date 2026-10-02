@@ -13,6 +13,22 @@
             <cac:PartyName>
                 <cbc:Name>Example Supplier GmbH</cbc:Name>
             </cac:PartyName>
+
+            <cac:PostalAddress>
+                <cbc:StreetName>Supplier Street 1</cbc:StreetName>
+                <cbc:CityName>Vienna</cbc:CityName>
+                <cbc:PostalZone>1010</cbc:PostalZone>
+                <cac:Country>
+                    <cbc:IdentificationCode>AT</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+
+            <cac:PartyTaxScheme>
+                <cbc:CompanyID>ATU12345678</cbc:CompanyID>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
         </cac:Party>
     </cac:AccountingSupplierParty>
 
@@ -21,6 +37,22 @@
             <cac:PartyName>
                 <cbc:Name>Example Logistics GmbH</cbc:Name>
             </cac:PartyName>
+
+            <cac:PostalAddress>
+                <cbc:StreetName>Customer Street 10</cbc:StreetName>
+                <cbc:CityName>Vienna</cbc:CityName>
+                <cbc:PostalZone>1020</cbc:PostalZone>
+                <cac:Country>
+                    <cbc:IdentificationCode>AT</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+
+            <cac:PartyTaxScheme>
+                <cbc:CompanyID>ATU87654321</cbc:CompanyID>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
         </cac:Party>
     </cac:AccountingCustomerParty>
 

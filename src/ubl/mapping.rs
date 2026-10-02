@@ -4,11 +4,11 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use crate::domain::{
-    Currency, Invoice, InvoiceId, InvoiceLine, InvoiceTotals, Money, Party, TaxInformation,
-    VatBreakdown,
+    Address, Currency, Invoice, InvoiceId, InvoiceLine, InvoiceTotals, Money, Party,
+    TaxInformation, VatBreakdown,
 };
 
-use super::model::{UblAmount, UblInvoice};
+use super::model::{UblAmount, UblInvoice, UblParty};
 
 #[derive(Debug, Error)]
 pub enum MappingError {
@@ -58,6 +58,35 @@ fn map_amount(
     Ok(Money::new(value, expected_currency.clone()))
 }
 
+fn map_party(source: UblParty) -> Party {
+    let address = source.postal_address.map(|address| Address {
+        street: address.street_name,
+        postal_code: address.postal_zone,
+        city: address.city_name,
+        country_code: address
+            .country
+            .and_then(|country| country.identification_code),
+    });
+
+    let vat_id = source
+        .party_tax_schemes
+        .into_iter()
+        .find(|tax_scheme| {
+            tax_scheme
+                .tax_scheme
+                .as_ref()
+                .and_then(|scheme| scheme.id.as_deref())
+                == Some("VAT")
+        })
+        .and_then(|tax_scheme| tax_scheme.company_id);
+
+    Party {
+        name: source.party_name.name,
+        address,
+        vat_id,
+    }
+}
+
 impl TryFrom<UblInvoice> for Invoice {
     type Error = MappingError;
 
@@ -66,17 +95,9 @@ impl TryFrom<UblInvoice> for Invoice {
 
         let issue_date = parse_date(&source.issue_date, "IssueDate")?;
 
-        let seller = Party {
-            name: source.accounting_supplier_party.party.party_name.name,
-            address: None,
-            vat_id: None,
-        };
+        let seller = map_party(source.accounting_supplier_party.party);
 
-        let buyer = Party {
-            name: source.accounting_customer_party.party.party_name.name,
-            address: None,
-            vat_id: None,
-        };
+        let buyer = map_party(source.accounting_customer_party.party);
 
         let mut lines = Vec::new();
 

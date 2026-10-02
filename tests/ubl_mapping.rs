@@ -40,4 +40,22 @@ fn maps_ubl_invoice_into_canonical_invoice() {
     assert_eq!(invoice.totals.gross_amount.amount, Decimal::new(1140000, 2));
 
     assert!(invoice.totals.is_arithmetically_consistent());
+
+    assert_eq!(invoice.seller.vat_id.as_deref(), Some("ATU12345678"));
+
+    let seller_address = invoice
+        .seller
+        .address
+        .as_ref()
+        .expect("seller should have an address");
+
+    assert_eq!(seller_address.street.as_deref(), Some("Supplier Street 1"));
+
+    assert_eq!(seller_address.postal_code.as_deref(), Some("1010"));
+
+    assert_eq!(seller_address.city.as_deref(), Some("Vienna"));
+
+    assert_eq!(seller_address.country_code.as_deref(), Some("AT"));
+
+    assert_eq!(invoice.buyer.vat_id.as_deref(), Some("ATU87654321"));
 }

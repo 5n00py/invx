@@ -19,6 +19,42 @@ pub struct UblQuantity {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
+pub struct UblCountry {
+    #[serde(rename = "IdentificationCode")]
+    pub identification_code: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct UblPostalAddress {
+    #[serde(rename = "StreetName")]
+    pub street_name: Option<String>,
+
+    #[serde(rename = "CityName")]
+    pub city_name: Option<String>,
+
+    #[serde(rename = "PostalZone")]
+    pub postal_zone: Option<String>,
+
+    #[serde(rename = "Country")]
+    pub country: Option<UblCountry>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct UblTaxScheme {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct UblPartyTaxScheme {
+    #[serde(rename = "CompanyID")]
+    pub company_id: Option<String>,
+
+    #[serde(rename = "TaxScheme")]
+    pub tax_scheme: Option<UblTaxScheme>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct UblPartyName {
     #[serde(rename = "Name")]
     pub name: String,
@@ -28,6 +64,12 @@ pub struct UblPartyName {
 pub struct UblParty {
     #[serde(rename = "PartyName")]
     pub party_name: UblPartyName,
+
+    #[serde(rename = "PostalAddress")]
+    pub postal_address: Option<UblPostalAddress>,
+
+    #[serde(rename = "PartyTaxScheme", default)]
+    pub party_tax_schemes: Vec<UblPartyTaxScheme>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
