@@ -1,9 +1,19 @@
 use serde::Serialize;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PaymentMethod {
+    BankTransfer,
+    Other,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PaymentInformation {
-    /// Payment means type code, e.g. UNCL4461 code "58" for SEPA credit transfer.
-    pub means_code: String,
+    pub method: PaymentMethod,
+
+    /// Original standardized payment means code when one exists,
+    /// e.g. UBL / EN 16931 "30" or "58".
+    pub means_code: Option<String>,
 
     /// Remittance information used to associate the payment with the invoice.
     pub reference: Option<String>,

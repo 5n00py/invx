@@ -13,6 +13,6 @@ pub use party::{Address, Party};
 
 pub use tax::{TaxInformation, VatBreakdown};
 
-pub use payment::{PaymentAccount, PaymentInformation};
+pub use payment::{PaymentAccount, PaymentInformation, PaymentMethod};
 
 pub use adjustment::{AdjustmentKind, DocumentAdjustment};

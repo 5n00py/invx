@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 
-use crate::domain::Invoice;
+use crate::domain::{Invoice, PaymentMethod};
 
 use super::{Severity, ValidationResult, Violation, core::ValidationRule};
 
@@ -12,7 +12,7 @@ impl ValidationRule for CreditTransferRequiresAccount {
             return Vec::new();
         };
 
-        let requires_account = matches!(payment.means_code.as_str(), "30" | "58");
+        let requires_account = payment.method == PaymentMethod::BankTransfer;
 
         if requires_account && payment.payee_account.is_none() {
             return vec![Violation {

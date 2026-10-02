@@ -5,7 +5,8 @@ use thiserror::Error;
 
 use crate::domain::{
     Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceId, InvoiceLine,
-    InvoiceTotals, Money, Party, PaymentAccount, PaymentInformation, TaxInformation, VatBreakdown,
+    InvoiceTotals, Money, Party, PaymentAccount, PaymentInformation, PaymentMethod, TaxInformation,
+    VatBreakdown,
 };
 
 use super::model::{UblAllowanceCharge, UblAmount, UblInvoice, UblParty, UblPaymentMeans};
@@ -95,12 +96,21 @@ fn map_party(source: UblParty) -> Party {
 }
 
 fn map_payment(source: UblPaymentMeans) -> PaymentInformation {
+    let means_code = source.payment_means_code;
+
+    let method = match means_code.as_str() {
+        "30" | "58" => PaymentMethod::BankTransfer,
+
+        _ => PaymentMethod::Other,
+    };
+
     let payee_account = source
         .payee_financial_account
         .and_then(|account| account.id.map(|identifier| PaymentAccount { identifier }));
 
     PaymentInformation {
-        means_code: source.payment_means_code,
+        method,
+        means_code: Some(means_code),
         reference: source.payment_id,
         payee_account,
     }

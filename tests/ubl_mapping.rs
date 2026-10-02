@@ -66,7 +66,7 @@ fn maps_ubl_invoice_into_canonical_invoice() {
         .as_ref()
         .expect("invoice should contain payment information");
 
-    assert_eq!(payment.means_code, "58");
+    assert_eq!(payment.means_code.as_deref(), Some("58"));
 
     assert_eq!(payment.reference.as_deref(), Some("2026-00421"));
 

@@ -1,6 +1,6 @@
 use std::{error::Error, path::PathBuf, process::ExitCode};
 
-use invx::domain::{Address, AdjustmentKind, Invoice};
+use invx::domain::{Address, AdjustmentKind, Invoice, PaymentMethod};
 
 use super::input::load_ubl_invoice;
 
@@ -179,7 +179,17 @@ fn print_invoice(invoice: &Invoice) {
 
     if let Some(payment) = &invoice.payment {
         println!("Payment");
-        println!("  Means code: {}", payment.means_code);
+
+        let method = match payment.method {
+            PaymentMethod::BankTransfer => "Bank transfer",
+            PaymentMethod::Other => "Other",
+        };
+
+        println!("  Method:     {method}");
+
+        if let Some(means_code) = &payment.means_code {
+            println!("  Means code: {means_code}");
+        }
 
         if let Some(reference) = &payment.reference {
             println!("  Reference:  {reference}");

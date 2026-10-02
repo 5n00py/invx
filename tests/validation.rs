@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 
+use invx::domain::PaymentMethod;
 use invx::{
     domain::Invoice, ubl::parser::parse_invoice, validation::ValidationProfile,
     validation::validate,
@@ -83,7 +84,7 @@ fn credit_transfer_with_payment_account_is_valid() {
 }
 
 #[test]
-fn non_credit_transfer_does_not_require_payment_account() {
+fn non_bank_transfer_does_not_require_payment_account() {
     let ubl = parse_invoice(SIMPLE_INVOICE).expect("UBL should parse");
 
     let mut invoice = Invoice::try_from(ubl).expect("UBL should map");
@@ -93,7 +94,8 @@ fn non_credit_transfer_does_not_require_payment_account() {
         .as_mut()
         .expect("invoice should have payment information");
 
-    payment.means_code = "10".to_string();
+    payment.method = PaymentMethod::Other;
+    payment.means_code = Some("10".to_string());
     payment.payee_account = None;
 
     let result = validate(&invoice, ValidationProfile::En16931Subset);
