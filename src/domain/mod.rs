@@ -1,3 +1,4 @@
+mod adjustment;
 mod invoice;
 mod money;
 mod party;
@@ -13,3 +14,5 @@ pub use party::{Address, Party};
 pub use tax::{TaxInformation, VatBreakdown};
 
 pub use payment::{PaymentAccount, PaymentInformation};
+
+pub use adjustment::{AdjustmentKind, DocumentAdjustment};

@@ -69,12 +69,44 @@
         </cac:PayeeFinancialAccount>
     </cac:PaymentMeans>
 
+    <cac:AllowanceCharge>
+        <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
+        <cbc:AllowanceChargeReason>Project discount</cbc:AllowanceChargeReason>
+        <cbc:MultiplierFactorNumeric>5</cbc:MultiplierFactorNumeric>
+        <cbc:Amount currencyID="EUR">475.00</cbc:Amount>
+        <cbc:BaseAmount currencyID="EUR">9500.00</cbc:BaseAmount>
+
+        <cac:TaxCategory>
+            <cbc:ID>S</cbc:ID>
+            <cbc:Percent>20</cbc:Percent>
+
+            <cac:TaxScheme>
+                <cbc:ID>VAT</cbc:ID>
+            </cac:TaxScheme>
+        </cac:TaxCategory>
+    </cac:AllowanceCharge>
+
+    <cac:AllowanceCharge>
+        <cbc:ChargeIndicator>true</cbc:ChargeIndicator>
+        <cbc:AllowanceChargeReason>Administration fee</cbc:AllowanceChargeReason>
+        <cbc:Amount currencyID="EUR">100.00</cbc:Amount>
+
+        <cac:TaxCategory>
+            <cbc:ID>S</cbc:ID>
+            <cbc:Percent>20</cbc:Percent>
+
+            <cac:TaxScheme>
+                <cbc:ID>VAT</cbc:ID>
+            </cac:TaxScheme>
+        </cac:TaxCategory>
+    </cac:AllowanceCharge>
+
     <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="EUR">2000.00</cbc:TaxAmount>
+        <cbc:TaxAmount currencyID="EUR">1925.00</cbc:TaxAmount>
 
         <cac:TaxSubtotal>
-            <cbc:TaxableAmount currencyID="EUR">9500.00</cbc:TaxableAmount>
-            <cbc:TaxAmount currencyID="EUR">1900.00</cbc:TaxAmount>
+            <cbc:TaxableAmount currencyID="EUR">9125.00</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="EUR">1825.00</cbc:TaxAmount>
 
             <cac:TaxCategory>
                 <cbc:ID>S</cbc:ID>
@@ -103,9 +135,11 @@
 
     <cac:LegalMonetaryTotal>
         <cbc:LineExtensionAmount currencyID="EUR">10500.00</cbc:LineExtensionAmount>
-        <cbc:TaxExclusiveAmount currencyID="EUR">10500.00</cbc:TaxExclusiveAmount>
-        <cbc:TaxInclusiveAmount currencyID="EUR">12500.00</cbc:TaxInclusiveAmount>
-        <cbc:PayableAmount currencyID="EUR">12500.00</cbc:PayableAmount>
+        <cbc:AllowanceTotalAmount currencyID="EUR">475.00</cbc:AllowanceTotalAmount>
+        <cbc:ChargeTotalAmount currencyID="EUR">100.00</cbc:ChargeTotalAmount>
+        <cbc:TaxExclusiveAmount currencyID="EUR">10125.00</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="EUR">12050.00</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="EUR">12050.00</cbc:PayableAmount>
     </cac:LegalMonetaryTotal>
 
     <cac:InvoiceLine>

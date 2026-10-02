@@ -4,11 +4,11 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use crate::domain::{
-    Address, Currency, Invoice, InvoiceId, InvoiceLine, InvoiceTotals, Money, Party,
-    PaymentAccount, PaymentInformation, TaxInformation, VatBreakdown,
+    Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceId, InvoiceLine,
+    InvoiceTotals, Money, Party, PaymentAccount, PaymentInformation, TaxInformation, VatBreakdown,
 };
 
-use super::model::{UblAmount, UblInvoice, UblParty, UblPaymentMeans};
+use super::model::{UblAllowanceCharge, UblAmount, UblInvoice, UblParty, UblPaymentMeans};
 
 #[derive(Debug, Error)]
 pub enum MappingError {
@@ -41,6 +41,10 @@ fn parse_decimal(value: &str, field: &'static str) -> Result<Decimal, MappingErr
         field,
         value: value.to_string(),
     })
+}
+
+fn zero_money(currency: &Currency) -> Money {
+    Money::new(Decimal::ZERO, currency.clone())
 }
 
 fn map_amount(
@@ -102,6 +106,51 @@ fn map_payment(source: UblPaymentMeans) -> PaymentInformation {
     }
 }
 
+fn map_adjustment(
+    source: UblAllowanceCharge,
+    currency: &Currency,
+) -> Result<DocumentAdjustment, MappingError> {
+    let kind = if source.charge_indicator {
+        AdjustmentKind::Charge
+    } else {
+        AdjustmentKind::Allowance
+    };
+
+    let amount = map_amount(source.amount, currency, "AllowanceCharge.Amount")?;
+
+    let base_amount = source
+        .base_amount
+        .map(|amount| map_amount(amount, currency, "AllowanceCharge.BaseAmount"))
+        .transpose()?;
+
+    let percentage = source
+        .multiplier_factor_numeric
+        .map(|value| parse_decimal(&value, "AllowanceCharge.MultiplierFactorNumeric"))
+        .transpose()?;
+
+    let tax = source
+        .tax_category
+        .map(|tax| {
+            let rate = parse_decimal(&tax.percent, "AllowanceCharge.TaxCategory.Percent")?;
+
+            Ok::<_, MappingError>(TaxInformation {
+                category_code: tax.id,
+                rate,
+            })
+        })
+        .transpose()?;
+
+    Ok(DocumentAdjustment {
+        kind,
+        amount,
+        base_amount,
+        percentage,
+        reason_code: source.reason_code,
+        reasons: source.reasons,
+        tax,
+    })
+}
+
 impl TryFrom<UblInvoice> for Invoice {
     type Error = MappingError;
 
@@ -114,12 +163,28 @@ impl TryFrom<UblInvoice> for Invoice {
 
         let buyer = map_party(source.accounting_customer_party.party);
 
+        let order_reference = source.order_reference.map(|reference| reference.id);
+
+        let payment = match source.payment_means.len() {
+            0 => None,
+
+            1 => source.payment_means.into_iter().next().map(map_payment),
+
+            _ => {
+                return Err(MappingError::MultiplePaymentMeans);
+            }
+        };
+
         let mut lines = Vec::new();
 
         for line in source.invoice_lines {
+            let tax_rate = parse_decimal(
+                &line.item.classified_tax_category.percent,
+                "InvoiceLine.Item.ClassifiedTaxCategory.Percent",
+            )?;
+
             lines.push(InvoiceLine {
                 id: line.id,
-
                 description: line.item.description,
 
                 quantity: parse_decimal(
@@ -143,25 +208,30 @@ impl TryFrom<UblInvoice> for Invoice {
 
                 tax: TaxInformation {
                     category_code: line.item.classified_tax_category.id,
-
-                    rate: parse_decimal(
-                        &line.item.classified_tax_category.percent,
-                        "InvoiceLine.Item.ClassifiedTaxCategory.Percent",
-                    )?,
+                    rate: tax_rate,
                 },
             });
         }
 
+        /*
+         * Pull these nested structures out before consuming
+         * their individual fields below.
+         */
+        let tax_total = source.tax_total;
+        let monetary_total = source.legal_monetary_total;
+
         let mut vat_breakdown = Vec::new();
 
-        for subtotal in source.tax_total.tax_subtotals {
+        for subtotal in tax_total.tax_subtotals {
+            let rate = parse_decimal(
+                &subtotal.tax_category.percent,
+                "TaxSubtotal.TaxCategory.Percent",
+            )?;
+
             vat_breakdown.push(VatBreakdown {
                 category_code: subtotal.tax_category.id,
 
-                rate: parse_decimal(
-                    &subtotal.tax_category.percent,
-                    "TaxSubtotal.TaxCategory.Percent",
-                )?,
+                rate,
 
                 taxable_amount: map_amount(
                     subtotal.taxable_amount,
@@ -173,36 +243,59 @@ impl TryFrom<UblInvoice> for Invoice {
             });
         }
 
+        let adjustments = source
+            .allowance_charges
+            .into_iter()
+            .map(|adjustment| map_adjustment(adjustment, &currency))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let line_net_amount = map_amount(
+            monetary_total.line_extension_amount,
+            &currency,
+            "LegalMonetaryTotal.LineExtensionAmount",
+        )?;
+
+        let allowance_amount = monetary_total
+            .allowance_total_amount
+            .map(|amount| map_amount(amount, &currency, "LegalMonetaryTotal.AllowanceTotalAmount"))
+            .transpose()?
+            .unwrap_or_else(|| zero_money(&currency));
+
+        let charge_amount = monetary_total
+            .charge_total_amount
+            .map(|amount| map_amount(amount, &currency, "LegalMonetaryTotal.ChargeTotalAmount"))
+            .transpose()?
+            .unwrap_or_else(|| zero_money(&currency));
+
+        let net_amount = map_amount(
+            monetary_total.tax_exclusive_amount,
+            &currency,
+            "LegalMonetaryTotal.TaxExclusiveAmount",
+        )?;
+
+        let tax_amount = map_amount(tax_total.tax_amount, &currency, "TaxTotal.TaxAmount")?;
+
+        let gross_amount = map_amount(
+            monetary_total.tax_inclusive_amount,
+            &currency,
+            "LegalMonetaryTotal.TaxInclusiveAmount",
+        )?;
+
+        let payable_amount = map_amount(
+            monetary_total.payable_amount,
+            &currency,
+            "LegalMonetaryTotal.PayableAmount",
+        )?;
+
         let totals = InvoiceTotals {
-            net_amount: map_amount(
-                source.legal_monetary_total.tax_exclusive_amount,
-                &currency,
-                "LegalMonetaryTotal.TaxExclusiveAmount",
-            )?,
+            line_net_amount,
+            allowance_amount,
+            charge_amount,
 
-            tax_amount: map_amount(source.tax_total.tax_amount, &currency, "TaxTotal.TaxAmount")?,
-
-            gross_amount: map_amount(
-                source.legal_monetary_total.tax_inclusive_amount,
-                &currency,
-                "LegalMonetaryTotal.TaxInclusiveAmount",
-            )?,
-
-            payable_amount: map_amount(
-                source.legal_monetary_total.payable_amount,
-                &currency,
-                "LegalMonetaryTotal.PayableAmount",
-            )?,
-        };
-
-        let payment = match source.payment_means.len() {
-            0 => None,
-
-            1 => source.payment_means.into_iter().next().map(map_payment),
-
-            _ => {
-                return Err(MappingError::MultiplePaymentMeans);
-            }
+            net_amount,
+            tax_amount,
+            gross_amount,
+            payable_amount,
         };
 
         Ok(Invoice {
@@ -213,7 +306,7 @@ impl TryFrom<UblInvoice> for Invoice {
             seller,
             buyer,
 
-            order_reference: source.order_reference.map(|reference| reference.id),
+            order_reference,
 
             lines,
             vat_breakdown,
@@ -221,6 +314,8 @@ impl TryFrom<UblInvoice> for Invoice {
             payment,
 
             totals,
+
+            adjustments,
         })
     }
 }

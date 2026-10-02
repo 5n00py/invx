@@ -63,9 +63,9 @@ impl ValidationRule for GrossEqualsPayable {
     }
 }
 
-pub struct LineNetAmountsEqualInvoiceNet;
+pub struct LineNetAmountsEqualLineNetTotal;
 
-impl ValidationRule for LineNetAmountsEqualInvoiceNet {
+impl ValidationRule for LineNetAmountsEqualLineNetTotal {
     fn validate(&self, invoice: &Invoice) -> Vec<Violation> {
         let line_total: Decimal = invoice
             .lines
@@ -73,13 +73,12 @@ impl ValidationRule for LineNetAmountsEqualInvoiceNet {
             .map(|line| line.net_amount.amount)
             .sum();
 
-        if line_total != invoice.totals.net_amount.amount {
+        if line_total != invoice.totals.line_net_amount.amount {
             return vec![Violation {
                 code: "CORE-004".to_string(),
                 severity: Severity::Error,
-                message: "Sum of invoice line net amounts must equal invoice net amount"
-                    .to_string(),
-                field: Some("totals.net_amount".to_string()),
+                message: "Sum of invoice line net amounts must equal line net total".to_string(),
+                field: Some("totals.line_net_amount".to_string()),
             }];
         }
 
@@ -142,12 +141,36 @@ impl ValidationRule for VatBreakdownEqualsTaxTotal {
     }
 }
 
+pub struct AdjustedNetAmountIsConsistent;
+
+impl ValidationRule for AdjustedNetAmountIsConsistent {
+    fn validate(&self, invoice: &Invoice) -> Vec<Violation> {
+        let expected = invoice.totals.line_net_amount.amount
+            - invoice.totals.allowance_amount.amount
+            + invoice.totals.charge_amount.amount;
+
+        if expected != invoice.totals.net_amount.amount {
+            return vec![Violation {
+                code: "CORE-009".to_string(),
+                severity: Severity::Error,
+                message:
+                    "Line net total minus allowances plus charges must equal invoice net amount"
+                        .to_string(),
+                field: Some("totals.net_amount".to_string()),
+            }];
+        }
+
+        Vec::new()
+    }
+}
+
 pub(crate) fn validate_core(invoice: &Invoice) -> ValidationResult {
     let rules: Vec<Box<dyn ValidationRule>> = vec![
         Box::new(InvoiceHasLines),
         Box::new(NetPlusTaxEqualsGross),
         Box::new(GrossEqualsPayable),
-        Box::new(LineNetAmountsEqualInvoiceNet),
+        Box::new(LineNetAmountsEqualLineNetTotal),
+        Box::new(AdjustedNetAmountIsConsistent),
         Box::new(CurrencyConsistency),
         Box::new(VatBreakdownEqualsTaxTotal),
     ];

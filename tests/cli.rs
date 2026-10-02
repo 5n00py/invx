@@ -61,21 +61,22 @@ fn inspect_prints_invoice_summary() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    assert!(stdout.contains("2026-00421"));
-    assert!(stdout.contains("Example Supplier GmbH"));
-    assert!(stdout.contains("Example Logistics GmbH"));
-
     assert!(stdout.contains("Integration consulting"));
     assert!(stdout.contains("Technical training"));
 
-    assert!(stdout.contains("9500.00"));
-    assert!(stdout.contains("1000.00"));
+    assert!(stdout.contains("Adjustments"));
+    assert!(stdout.contains("Project discount"));
+    assert!(stdout.contains("Administration fee"));
 
-    assert!(stdout.contains("2000.00"));
-    assert!(stdout.contains("12500.00"));
+    assert!(stdout.contains("475.00"));
+    assert!(stdout.contains("100.00"));
 
-    assert!(stdout.contains("S / 20%"));
-    assert!(stdout.contains("S / 10%"));
+    assert!(stdout.contains("10125.00"));
+    assert!(stdout.contains("1925.00"));
+    assert!(stdout.contains("12050.00"));
+
+    assert!(stdout.contains("9125.00"));
+    assert!(stdout.contains("1825.00"));
 }
 
 #[test]

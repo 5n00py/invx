@@ -118,14 +118,14 @@ mod tests {
         assert_eq!(second_line.price.price_amount.value, "500.00");
         assert_eq!(second_line.price.price_amount.currency_id, "EUR");
 
-        assert_eq!(invoice.tax_total.tax_amount.value, "2000.00");
+        assert_eq!(invoice.tax_total.tax_amount.value, "1925.00");
 
         assert_eq!(invoice.tax_total.tax_subtotals.len(), 2);
 
         let first_vat = &invoice.tax_total.tax_subtotals[0];
 
-        assert_eq!(first_vat.taxable_amount.value, "9500.00");
-        assert_eq!(first_vat.tax_amount.value, "1900.00");
+        assert_eq!(first_vat.taxable_amount.value, "9125.00");
+        assert_eq!(first_vat.tax_amount.value, "1825.00");
         assert_eq!(first_vat.tax_category.id.as_deref(), Some("S"));
         assert_eq!(first_vat.tax_category.percent, "20");
 
@@ -143,17 +143,17 @@ mod tests {
 
         assert_eq!(
             invoice.legal_monetary_total.tax_exclusive_amount.value,
-            "10500.00"
+            "10125.00"
         );
 
         assert_eq!(
             invoice.legal_monetary_total.tax_inclusive_amount.value,
-            "12500.00"
+            "12050.00"
         );
 
         assert_eq!(
             invoice.legal_monetary_total.payable_amount.value,
-            "12500.00"
+            "12050.00"
         );
     }
 }

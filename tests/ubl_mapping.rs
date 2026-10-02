@@ -33,11 +33,11 @@ fn maps_ubl_invoice_into_canonical_invoice() {
 
     assert_eq!(invoice.vat_breakdown.len(), 2);
 
-    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(1050000, 2));
+    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(1012500, 2));
 
-    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(200000, 2));
+    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(192500, 2));
 
-    assert_eq!(invoice.totals.gross_amount.amount, Decimal::new(1250000, 2));
+    assert_eq!(invoice.totals.gross_amount.amount, Decimal::new(1205000, 2));
 
     assert!(invoice.totals.is_arithmetically_consistent());
 
@@ -101,12 +101,12 @@ fn maps_ubl_invoice_into_canonical_invoice() {
 
     assert_eq!(invoice.vat_breakdown.len(), 2);
 
-    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(1_050_000, 2));
+    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(1_012_500, 2));
 
-    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(200_000, 2));
+    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(192_500, 2));
 
     assert_eq!(
         invoice.totals.gross_amount.amount,
-        Decimal::new(1_250_000, 2)
+        Decimal::new(1_205_000, 2)
     );
 }
