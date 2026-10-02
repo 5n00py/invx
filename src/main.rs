@@ -22,6 +22,9 @@ fn run() -> Result<ExitCode, Box<dyn Error>> {
 
     match cli.command {
         Command::Inspect(args) => cli::inspect::run(&args),
+
         Command::Validate(args) => cli::validate::run(&args),
+
+        Command::ToJson(args) => cli::to_json::run(&args),
     }
 }

@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 pub mod input;
 pub mod inspect;
+pub mod to_json;
 pub mod validate;
 
 #[derive(Debug, Parser)]
@@ -22,4 +23,7 @@ pub enum Command {
 
     /// Validate an invoice
     Validate(validate::ValidateArgs),
+
+    /// Convert an invoice to canonical JSON
+    ToJson(to_json::ToJsonArgs),
 }

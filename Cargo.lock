@@ -140,6 +140,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -310,6 +311,7 @@ dependencies = [
  "quick-xml",
  "rust_decimal",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

@@ -1,6 +1,7 @@
 use rust_decimal::Decimal;
+use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct Currency(String);
 
 impl Currency {
@@ -13,7 +14,7 @@ impl Currency {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Money {
     pub amount: Decimal,
     pub currency: Currency,

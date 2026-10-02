@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PaymentInformation {
     /// Payment means type code, e.g. UNCL4461 code "58" for SEPA credit transfer.
     pub means_code: String,
@@ -10,7 +12,7 @@ pub struct PaymentInformation {
     pub payee_account: Option<PaymentAccount>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PaymentAccount {
     /// Payment account identifier, such as an IBAN or BBAN.
     pub identifier: String,

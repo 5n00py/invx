@@ -101,3 +101,34 @@ fn validate_accepts_en16931_subset_profile() {
     assert!(stdout.contains("VALID"));
     assert!(stdout.contains("en16931-subset"));
 }
+
+#[test]
+fn to_json_prints_canonical_invoice() {
+    let output = Command::new(env!("CARGO_BIN_EXE_invx"))
+        .arg("to-json")
+        .arg(fixture("simple-invoice.xml"))
+        .output()
+        .expect("invx should run");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&output.stdout).expect("stdout should contain valid JSON");
+
+    assert_eq!(json["id"], "2026-00421");
+
+    assert_eq!(json["currency"], "EUR");
+
+    assert_eq!(json["seller"]["name"], "Example Supplier GmbH");
+
+    assert_eq!(json["buyer"]["name"], "Example Logistics GmbH");
+
+    assert_eq!(json["lines"].as_array().unwrap().len(), 2);
+
+    assert_eq!(json["adjustments"].as_array().unwrap().len(), 2);
+}

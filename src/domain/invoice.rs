@@ -1,11 +1,11 @@
-use chrono::NaiveDate;
-use rust_decimal::Decimal;
-
 use super::{
     Currency, DocumentAdjustment, Money, Party, PaymentInformation, TaxInformation, VatBreakdown,
 };
+use chrono::NaiveDate;
+use rust_decimal::Decimal;
+use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct InvoiceId(String);
 
 impl InvoiceId {
@@ -18,7 +18,7 @@ impl InvoiceId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct InvoiceLine {
     pub id: String,
     pub description: String,
@@ -29,7 +29,7 @@ pub struct InvoiceLine {
     pub tax: TaxInformation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct InvoiceTotals {
     pub line_net_amount: Money,
     pub allowance_amount: Money,
@@ -60,7 +60,7 @@ impl InvoiceTotals {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Invoice {
     pub id: InvoiceId,
     pub issue_date: NaiveDate,
