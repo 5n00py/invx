@@ -1,6 +1,7 @@
-use std::path::PathBuf;
-
 use clap::{Parser, Subcommand};
+
+pub mod input;
+pub mod validate;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -16,8 +17,5 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Validate an invoice
-    Validate {
-        /// Invoice XML file
-        file: PathBuf,
-    },
+    Validate(validate::ValidateArgs),
 }
