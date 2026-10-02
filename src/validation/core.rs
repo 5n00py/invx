@@ -119,7 +119,7 @@ impl ValidationRule for CurrencyConsistency {
     }
 }
 
-pub fn validate_core(invoice: &Invoice) -> ValidationResult {
+pub(crate) fn validate_core(invoice: &Invoice) -> ValidationResult {
     let rules: Vec<Box<dyn ValidationRule>> = vec![
         Box::new(InvoiceHasLines),
         Box::new(NetPlusTaxEqualsGross),

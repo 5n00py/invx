@@ -25,7 +25,7 @@ impl ValidationRule for CreditTransferRequiresAccount {
     }
 }
 
-pub fn validate_en16931_subset(invoice: &Invoice) -> ValidationResult {
+pub(crate) fn validate_en16931_rules(invoice: &Invoice) -> ValidationResult {
     let rules: Vec<Box<dyn ValidationRule>> = vec![Box::new(CreditTransferRequiresAccount)];
 
     let mut result = ValidationResult::default();

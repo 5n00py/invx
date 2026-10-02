@@ -29,4 +29,8 @@ impl ValidationResult {
     pub fn push(&mut self, violation: Violation) {
         self.violations.push(violation);
     }
+
+    pub fn extend(&mut self, other: ValidationResult) {
+        self.violations.extend(other.violations);
+    }
 }

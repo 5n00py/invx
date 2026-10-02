@@ -72,3 +72,26 @@ fn inspect_prints_invoice_summary() {
     assert!(stdout.contains("2026-00421"));
     assert!(stdout.contains("AT611904300234573201"));
 }
+
+#[test]
+fn validate_accepts_en16931_subset_profile() {
+    let output = Command::new(env!("CARGO_BIN_EXE_invx"))
+        .arg("validate")
+        .arg("--profile")
+        .arg("en16931-subset")
+        .arg(fixture("simple-invoice.xml"))
+        .output()
+        .expect("invx should run");
+
+    assert!(
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(stdout.contains("VALID"));
+    assert!(stdout.contains("en16931-subset"));
+}

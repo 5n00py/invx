@@ -1,8 +1,8 @@
 use rust_decimal::Decimal;
 
 use invx::{
-    domain::Invoice, ubl::parser::parse_invoice, validation::validate_core,
-    validation::validate_en16931_subset,
+    domain::Invoice, ubl::parser::parse_invoice, validation::ValidationProfile,
+    validation::validate,
 };
 
 const SIMPLE_INVOICE: &str = include_str!("fixtures/ubl/simple-invoice.xml");
@@ -13,7 +13,7 @@ fn valid_ubl_invoice_passes_core_validation() {
 
     let invoice = Invoice::try_from(ubl).expect("UBL should map");
 
-    let result = validate_core(&invoice);
+    let result = validate(&invoice, ValidationProfile::Core);
 
     assert!(
         result.is_valid(),
@@ -30,7 +30,7 @@ fn detects_inconsistent_invoice_total() {
 
     invoice.totals.gross_amount.amount = Decimal::new(1_130_000, 2);
 
-    let result = validate_core(&invoice);
+    let result = validate(&invoice, ValidationProfile::Core);
 
     assert!(!result.is_valid());
 
@@ -55,7 +55,7 @@ fn credit_transfer_requires_payment_account() {
 
     payment.payee_account = None;
 
-    let result = validate_en16931_subset(&invoice);
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
 
     assert!(!result.is_valid());
 
@@ -73,7 +73,7 @@ fn credit_transfer_with_payment_account_is_valid() {
 
     let invoice = Invoice::try_from(ubl).expect("UBL should map");
 
-    let result = validate_en16931_subset(&invoice);
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
 
     assert!(
         result.is_valid(),
@@ -96,7 +96,7 @@ fn non_credit_transfer_does_not_require_payment_account() {
     payment.means_code = "10".to_string();
     payment.payee_account = None;
 
-    let result = validate_en16931_subset(&invoice);
+    let result = validate(&invoice, ValidationProfile::En16931Subset);
 
     assert!(result.is_valid());
 }
