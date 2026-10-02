@@ -158,6 +158,9 @@ pub struct EbInterfaceDetails {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct EbInterfaceBeneficiaryAccount {
+    #[serde(rename = "BankAccountNr")]
+    pub bank_account_nr: Option<String>,
+
     #[serde(rename = "IBAN")]
     pub iban: Option<String>,
 }
