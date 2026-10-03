@@ -86,7 +86,14 @@ impl InvoiceTotals {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Invoice {
     pub id: InvoiceId,
+
     pub issue_date: NaiveDate,
+
+    /// Payment due date.
+    ///
+    /// EN 16931 BT-9.
+    pub due_date: Option<NaiveDate>,
+
     pub currency: Currency,
 
     pub seller: Party,

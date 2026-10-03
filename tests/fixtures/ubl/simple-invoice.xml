@@ -6,6 +6,7 @@
 
     <cbc:ID>2026-00421</cbc:ID>
     <cbc:IssueDate>2026-09-30</cbc:IssueDate>
+    <cbc:DueDate>2026-10-30</cbc:DueDate>
     <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
 
     <cac:OrderReference>

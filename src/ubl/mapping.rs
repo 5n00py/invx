@@ -251,6 +251,12 @@ impl TryFrom<UblInvoice> for Invoice {
 
         let issue_date = parse_date(&source.issue_date, "IssueDate")?;
 
+        let due_date = source
+            .due_date
+            .as_deref()
+            .map(|value| parse_date(value, "DueDate"))
+            .transpose()?;
+
         let seller = map_party(source.accounting_supplier_party.party);
 
         let buyer = map_party(source.accounting_customer_party.party);
@@ -413,6 +419,7 @@ impl TryFrom<UblInvoice> for Invoice {
             id: InvoiceId::new(source.id),
 
             issue_date,
+            due_date,
             currency,
 
             seller,

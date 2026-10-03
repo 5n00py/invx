@@ -70,6 +70,7 @@ fn can_build_a_complete_invoice_through_the_public_api() {
     let invoice = Invoice {
         id: InvoiceId::new("2026-00421"),
         issue_date: NaiveDate::from_ymd_opt(2026, 9, 30).unwrap(),
+        due_date: None,
         currency: Currency::new("EUR"),
 
         seller,

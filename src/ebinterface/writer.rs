@@ -127,6 +127,7 @@ pub fn write_invoice(invoice: &Invoice) -> Result<String, WriterError> {
      * RoundingAmount?
      * PayableAmount
      * PaymentMethod?
+     * PaymentConditions?
      * ...
      */
 
@@ -164,6 +165,10 @@ pub fn write_invoice(invoice: &Invoice) -> Result<String, WriterError> {
 
     if let Some(payment) = &invoice.payment {
         write_payment(&mut writer, payment)?;
+    }
+
+    if let Some(due_date) = &invoice.due_date {
+        write_payment_conditions(&mut writer, due_date)?;
     }
 
     writer.write_event(Event::End(BytesEnd::new("Invoice")))?;
@@ -783,6 +788,19 @@ fn write_payment(writer: &mut XmlWriter, payment: &PaymentInformation) -> Result
     writer.write_event(Event::End(BytesEnd::new("UniversalBankTransaction")))?;
 
     writer.write_event(Event::End(BytesEnd::new("PaymentMethod")))?;
+
+    Ok(())
+}
+
+fn write_payment_conditions(
+    writer: &mut XmlWriter,
+    due_date: &chrono::NaiveDate,
+) -> Result<(), WriterError> {
+    writer.write_event(Event::Start(BytesStart::new("PaymentConditions")))?;
+
+    write_text(writer, "DueDate", &due_date.to_string())?;
+
+    writer.write_event(Event::End(BytesEnd::new("PaymentConditions")))?;
 
     Ok(())
 }

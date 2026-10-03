@@ -30,6 +30,13 @@ pub fn compare(left: &Invoice, right: &Invoice) -> ComparisonResult {
 
     compare_rendered(
         &mut result,
+        "due_date",
+        left.due_date.as_ref().map(ToString::to_string),
+        right.due_date.as_ref().map(ToString::to_string),
+    );
+
+    compare_rendered(
+        &mut result,
         "currency",
         Some(left.currency.as_str().to_string()),
         Some(right.currency.as_str().to_string()),

@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use invx::{
@@ -395,6 +396,7 @@ fn ebinterface_to_ubl_conversion_succeeds_with_information() {
     /*
      * This now verifies more than just totals:
      *
+     * - due date
      * - price base quantity
      * - line allowances / charges
      * - reason codes / reasons
@@ -414,4 +416,12 @@ fn ebinterface_to_ubl_conversion_succeeds_with_information() {
         "semantic differences after ebInterface -> UBL conversion: {:#?}",
         comparison.differences
     );
+}
+
+#[test]
+fn fixtures_map_due_date() {
+    let expected = NaiveDate::from_ymd_opt(2026, 10, 30).unwrap();
+
+    assert_eq!(load_ubl_invoice().due_date, Some(expected));
+    assert_eq!(load_ebinterface_invoice().due_date, Some(expected));
 }

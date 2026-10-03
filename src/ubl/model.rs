@@ -263,6 +263,9 @@ pub struct UblInvoice {
     #[serde(rename = "IssueDate")]
     pub issue_date: String,
 
+    #[serde(rename = "DueDate")]
+    pub due_date: Option<String>,
+
     #[serde(rename = "DocumentCurrencyCode")]
     pub document_currency_code: String,
 

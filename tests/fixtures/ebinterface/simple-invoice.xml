@@ -96,4 +96,8 @@
         </UniversalBankTransaction>
     </PaymentMethod>
 
+    <PaymentConditions>
+        <DueDate>2026-10-30</DueDate>
+    </PaymentConditions>
+
 </Invoice>

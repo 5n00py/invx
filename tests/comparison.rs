@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use invx::{
@@ -116,5 +117,24 @@ fn detects_changed_price_base_quantity() {
             .any(|difference| { difference.path == "lines[id=1].price_base_quantity.quantity" }),
         "differences: {:#?}",
         result.differences
+    );
+}
+
+#[test]
+fn detects_changed_due_date() {
+    let mut left = load_invoice();
+    let mut right = left.clone();
+
+    left.due_date = Some(NaiveDate::from_ymd_opt(2026, 10, 30).unwrap());
+
+    right.due_date = Some(NaiveDate::from_ymd_opt(2026, 11, 15).unwrap());
+
+    let result = compare(&left, &right);
+
+    assert!(
+        result
+            .differences
+            .iter()
+            .any(|difference| difference.path == "due_date")
     );
 }

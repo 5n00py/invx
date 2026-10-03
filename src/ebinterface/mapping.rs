@@ -362,6 +362,13 @@ impl TryFrom<EbInterfaceInvoice> for Invoice {
 
         let issue_date = parse_date(&source.invoice_date, "InvoiceDate")?;
 
+        let due_date = source
+            .payment_conditions
+            .as_ref()
+            .and_then(|conditions| conditions.due_date.as_deref())
+            .map(|value| parse_date(value, "PaymentConditions.DueDate"))
+            .transpose()?;
+
         let seller = map_party(source.biller, "Biller.Address")?;
 
         let order_reference = source
@@ -456,6 +463,7 @@ impl TryFrom<EbInterfaceInvoice> for Invoice {
             id: InvoiceId::new(source.invoice_number),
 
             issue_date,
+            due_date,
             currency,
 
             seller,

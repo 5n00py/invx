@@ -65,6 +65,10 @@ pub fn write_invoice(invoice: &Invoice) -> Result<String, WriterError> {
         &invoice.issue_date.to_string(),
     )?;
 
+    if let Some(due_date) = &invoice.due_date {
+        write_text(&mut writer, "cbc:DueDate", &due_date.to_string())?;
+    }
+
     write_text(
         &mut writer,
         "cbc:DocumentCurrencyCode",

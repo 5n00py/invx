@@ -280,6 +280,12 @@ pub struct EbInterfacePaymentMethod {
     pub universal_bank_transaction: Option<EbInterfaceUniversalBankTransaction>,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EbInterfacePaymentConditions {
+    #[serde(rename = "DueDate")]
+    pub due_date: Option<String>,
+}
+
 // -----------------------------------------------------------------------------
 // Invoice
 // -----------------------------------------------------------------------------
@@ -321,4 +327,7 @@ pub struct EbInterfaceInvoice {
 
     #[serde(rename = "PaymentMethod")]
     pub payment_method: Option<EbInterfacePaymentMethod>,
+
+    #[serde(rename = "PaymentConditions")]
+    pub payment_conditions: Option<EbInterfacePaymentConditions>,
 }

@@ -22,6 +22,11 @@ fn print_invoice(invoice: &Invoice) {
     println!("Document");
     println!("  Invoice ID: {}", invoice.id.as_str());
     println!("  Issue date: {}", invoice.issue_date);
+
+    if let Some(due_date) = &invoice.due_date {
+        println!("  Due date:   {due_date}");
+    }
+
     println!("  Currency:   {}", invoice.currency.as_str());
 
     if let Some(order_reference) = &invoice.order_reference {
