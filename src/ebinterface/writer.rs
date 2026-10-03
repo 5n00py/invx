@@ -9,8 +9,8 @@ use rust_decimal::Decimal;
 use thiserror::Error;
 
 use crate::domain::{
-    Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceLine, Money, Party,
-    PaymentInformation, PaymentMethod, VatBreakdown,
+    Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceLine, LineAdjustment,
+    Money, Party, PaymentInformation, PaymentMethod, VatBreakdown,
 };
 
 const EBINTERFACE_NAMESPACE: &str = "http://www.ebinterface.at/schema/6p1/";
@@ -48,6 +48,18 @@ pub enum WriterError {
 
     #[error("invoice line '{line_id}' requires a VAT category for ebInterface 6.1")]
     MissingLineTaxCategory { line_id: String },
+
+    #[error("invoice line '{line_id}' adjustment requires BaseAmount for ebInterface 6.1")]
+    MissingLineAdjustmentBaseAmount { line_id: String },
+
+    #[error(
+        "invoice line '{line_id}' price base quantity unit '{base_unit}' cannot be represented with line unit '{line_unit}' in ebInterface 6.1"
+    )]
+    BaseQuantityUnitMismatch {
+        line_id: String,
+        line_unit: String,
+        base_unit: String,
+    },
 
     #[error("VAT breakdown requires a VAT category for ebInterface 6.1")]
     MissingVatCategory,
@@ -308,8 +320,8 @@ fn write_line(
 
     /*
      * PositionNumber is xs:positiveInteger.
-     * Do not silently drop a canonical line ID that
-     * cannot be represented.
+     * Do not silently drop a canonical line ID
+     * that cannot be represented.
      */
     let position_number = line
         .id
@@ -336,12 +348,11 @@ fn write_line(
 
     write_quantity(writer, line.quantity, unit_code)?;
 
-    write_decimal4(
-        writer,
-        "UnitPrice",
-        line.unit_price.amount,
-        "lines.unit_price",
-    )?;
+    write_unit_price(writer, line, unit_code)?;
+
+    if !line.adjustments.is_empty() {
+        write_line_adjustments(writer, line, currency)?;
+    }
 
     write_tax_item(
         writer,
@@ -360,6 +371,165 @@ fn write_line(
     )?;
 
     writer.write_event(Event::End(BytesEnd::new("ListLineItem")))?;
+
+    Ok(())
+}
+
+fn write_unit_price(
+    writer: &mut XmlWriter,
+    line: &InvoiceLine,
+    line_unit: &str,
+) -> Result<(), WriterError> {
+    let value = format_decimal(line.unit_price.amount, 4, "lines.unit_price")?;
+
+    let base_quantity_value = match &line.price_base_quantity {
+        None => None,
+
+        Some(base_quantity) => {
+            /*
+             * ebInterface represents
+             * BaseQuantity only as an
+             * attribute on UnitPrice.
+             *
+             * It cannot carry an independent
+             * unit code. If the canonical
+             * base quantity explicitly uses
+             * another unit, writing it would
+             * lose information.
+             */
+            if let Some(base_unit) = &base_quantity.unit_code
+                && base_unit != line_unit
+            {
+                return Err(WriterError::BaseQuantityUnitMismatch {
+                    line_id: line.id.clone(),
+
+                    line_unit: line_unit.to_string(),
+
+                    base_unit: base_unit.clone(),
+                });
+            }
+
+            Some(format_decimal(
+                base_quantity.quantity,
+                4,
+                "lines.price_base_quantity.quantity",
+            )?)
+        }
+    };
+
+    let mut element = BytesStart::new("UnitPrice");
+
+    if let Some(base_quantity) = &base_quantity_value {
+        element.push_attribute(("BaseQuantity", base_quantity.as_str()));
+    }
+
+    writer.write_event(Event::Start(element))?;
+
+    writer.write_event(Event::Text(BytesText::new(&value)))?;
+
+    writer.write_event(Event::End(BytesEnd::new("UnitPrice")))?;
+
+    Ok(())
+}
+
+fn write_line_adjustments(
+    writer: &mut XmlWriter,
+    line: &InvoiceLine,
+    currency: &Currency,
+) -> Result<(), WriterError> {
+    writer.write_event(Event::Start(BytesStart::new(
+        "ReductionAndSurchargeListLineItemDetails",
+    )))?;
+
+    for adjustment in &line.adjustments {
+        write_line_adjustment(writer, line, adjustment, currency)?;
+    }
+
+    writer.write_event(Event::End(BytesEnd::new(
+        "ReductionAndSurchargeListLineItemDetails",
+    )))?;
+
+    Ok(())
+}
+
+fn write_line_adjustment(
+    writer: &mut XmlWriter,
+    line: &InvoiceLine,
+    adjustment: &LineAdjustment,
+    currency: &Currency,
+) -> Result<(), WriterError> {
+    ensure_currency(&adjustment.amount, currency, "lines.adjustments.amount")?;
+
+    let base_amount = adjustment.base_amount.as_ref().ok_or_else(|| {
+        WriterError::MissingLineAdjustmentBaseAmount {
+            line_id: line.id.clone(),
+        }
+    })?;
+
+    ensure_currency(base_amount, currency, "lines.adjustments.base_amount")?;
+
+    let element_name = match adjustment.kind {
+        AdjustmentKind::Allowance => "ReductionListLineItem",
+
+        AdjustmentKind::Charge => "SurchargeListLineItem",
+    };
+
+    writer.write_event(Event::Start(BytesStart::new(element_name)))?;
+
+    /*
+     * ReductionAndSurchargeBaseType:
+     *
+     * BaseAmount
+     * Percentage?
+     * Amount?
+     * Comment?
+     * Classification?
+     */
+
+    write_decimal2(
+        writer,
+        "BaseAmount",
+        base_amount.amount,
+        "lines.adjustments.base_amount",
+    )?;
+
+    if let Some(percentage) = adjustment.percentage {
+        write_decimal2(
+            writer,
+            "Percentage",
+            percentage,
+            "lines.adjustments.percentage",
+        )?;
+    }
+
+    /*
+     * Canonical LineAdjustment always has an
+     * explicit amount, so preserve it instead
+     * of forcing the target to recalculate it.
+     */
+    write_decimal2(
+        writer,
+        "Amount",
+        adjustment.amount.amount,
+        "lines.adjustments.amount",
+    )?;
+
+    if !adjustment.reasons.is_empty() {
+        let comment = adjustment.reasons.join("; ");
+
+        write_text(writer, "Comment", &comment)?;
+    }
+
+    if let Some(reason_code) = &adjustment.reason_code {
+        /*
+         * The canonical model currently retains
+         * the classification value but not an
+         * ebInterface ClassificationSchema.
+         */
+        write_text(writer, "Classification", reason_code)?;
+    }
+
+    writer.write_event(Event::End(BytesEnd::new(element_name)))?;
 
     Ok(())
 }
@@ -624,17 +794,6 @@ fn write_decimal2(
     field: &'static str,
 ) -> Result<(), WriterError> {
     let value = format_decimal(value, 2, field)?;
-
-    write_text(writer, element_name, &value)
-}
-
-fn write_decimal4(
-    writer: &mut XmlWriter,
-    element_name: &'static str,
-    value: Decimal,
-    field: &'static str,
-) -> Result<(), WriterError> {
-    let value = format_decimal(value, 4, field)?;
 
     write_text(writer, element_name, &value)
 }

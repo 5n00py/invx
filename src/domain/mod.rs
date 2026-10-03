@@ -5,7 +5,7 @@ mod party;
 mod payment;
 mod tax;
 
-pub use invoice::{Invoice, InvoiceId, InvoiceLine, InvoiceTotals};
+pub use invoice::{Invoice, InvoiceId, InvoiceLine, InvoiceTotals, PriceBaseQuantity};
 
 pub use money::{Currency, Money};
 
@@ -15,4 +15,4 @@ pub use tax::{TaxInformation, VatBreakdown};
 
 pub use payment::{PaymentAccount, PaymentInformation, PaymentMethod};
 
-pub use adjustment::{AdjustmentKind, DocumentAdjustment};
+pub use adjustment::{AdjustmentKind, DocumentAdjustment, LineAdjustment};

@@ -127,6 +127,15 @@ fn analyze_ubl(invoice: &Invoice) -> ConversionDiagnostics {
         }
     }
 
+    /*
+     * UBL can represent the canonical
+     * PriceBaseQuantity and current line
+     * allowance/charge model directly.
+     *
+     * The shared currency check below still
+     * protects all Money values emitted by
+     * the writer.
+     */
     check_currencies(invoice, TargetFormat::Ubl, &mut diagnostics);
 
     diagnostics
@@ -202,6 +211,109 @@ fn analyze_ebinterface(invoice: &Invoice) -> ConversionDiagnostics {
             format!("{path}.tax.rate"),
             &mut diagnostics,
         );
+
+        /*
+         * ebInterface represents price base
+         * quantity as UnitPrice/@BaseQuantity.
+         *
+         * The base quantity therefore inherits
+         * the Quantity unit. A distinct canonical
+         * base-quantity unit cannot be represented.
+         */
+        if let Some(base_quantity) = &line.price_base_quantity {
+            check_decimal_scale(
+                base_quantity.quantity,
+                4,
+                format!("{path}.price_base_quantity.quantity"),
+                &mut diagnostics,
+            );
+
+            if let (Some(line_unit), Some(base_unit)) =
+                (line.unit_code.as_ref(), base_quantity.unit_code.as_ref())
+                && line_unit != base_unit
+            {
+                diagnostics.push(
+                    ConversionIssue::new(
+                        "EBI-LINE-004",
+                        ConversionImpact::Blocking,
+                        format!(
+                            "{path}.price_base_quantity.unit_code"
+                        ),
+                        format!(
+                            "ebInterface 6.1 UnitPrice BaseQuantity uses the invoice line unit {line_unit}, but canonical price base quantity uses {base_unit}"
+                        ),
+                    ),
+                );
+            }
+        }
+
+        for (adjustment_index, adjustment) in line.adjustments.iter().enumerate() {
+            let adjustment_path = format!("{path}.adjustments[{adjustment_index}]");
+
+            /*
+             * The current ebInterface writer
+             * emits ReductionListLineItem /
+             * SurchargeListLineItem with an
+             * explicit BaseAmount.
+             */
+            if adjustment.base_amount.is_none() {
+                diagnostics.push(ConversionIssue::new(
+                    "EBI-LINE-ADJ-001",
+                    ConversionImpact::Blocking,
+                    format!("{adjustment_path}.base_amount"),
+                    concat!(
+                        "ebInterface 6.1 line ",
+                        "reductions and surcharges ",
+                        "require BaseAmount"
+                    ),
+                ));
+            }
+
+            check_decimal_scale(
+                adjustment.amount.amount,
+                2,
+                format!("{adjustment_path}.amount"),
+                &mut diagnostics,
+            );
+
+            if let Some(base_amount) = &adjustment.base_amount {
+                check_decimal_scale(
+                    base_amount.amount,
+                    2,
+                    format!("{adjustment_path}.base_amount"),
+                    &mut diagnostics,
+                );
+            }
+
+            if let Some(percentage) = adjustment.percentage {
+                check_decimal_scale(
+                    percentage,
+                    2,
+                    format!("{adjustment_path}.percentage"),
+                    &mut diagnostics,
+                );
+            }
+
+            /*
+             * ebInterface gives us one Comment
+             * value. The writer joins multiple
+             * canonical reasons, preserving the
+             * text but not the original list
+             * structure.
+             */
+            if adjustment.reasons.len() > 1 {
+                diagnostics.push(ConversionIssue::new(
+                    "EBI-LINE-ADJ-002",
+                    ConversionImpact::Lossy,
+                    format!("{adjustment_path}.reasons"),
+                    concat!(
+                        "multiple line adjustment ",
+                        "reasons will be combined ",
+                        "into one ebInterface Comment"
+                    ),
+                ));
+            }
+        }
     }
 
     for (index, adjustment) in invoice.adjustments.iter().enumerate() {
@@ -281,11 +393,13 @@ fn analyze_ebinterface(invoice: &Invoice) -> ConversionDiagnostics {
         }
 
         /*
-         * ebInterface currently writes all canonical
-         * reasons into one Comment value.
+         * ebInterface currently writes all
+         * canonical reasons into one Comment
+         * value.
          *
-         * The business description survives, but the
-         * original list structure cannot be recovered.
+         * The business description survives,
+         * but the original list structure
+         * cannot be recovered.
          */
         if adjustment.reasons.len() > 1 {
             diagnostics.push(ConversionIssue::new(
@@ -469,15 +583,21 @@ fn check_currencies(
     };
 
     for line in &invoice.lines {
-        check(
-            format!("lines[id={}].unit_price", line.id),
-            &line.unit_price,
-        );
+        let line_path = format!("lines[id={}]", line.id);
 
-        check(
-            format!("lines[id={}].net_amount", line.id),
-            &line.net_amount,
-        );
+        check(format!("{line_path}.unit_price"), &line.unit_price);
+
+        check(format!("{line_path}.net_amount"), &line.net_amount);
+
+        for (adjustment_index, adjustment) in line.adjustments.iter().enumerate() {
+            let adjustment_path = format!("{line_path}.adjustments[{adjustment_index}]");
+
+            check(format!("{adjustment_path}.amount"), &adjustment.amount);
+
+            if let Some(base_amount) = &adjustment.base_amount {
+                check(format!("{adjustment_path}.base_amount"), base_amount);
+            }
+        }
     }
 
     for (index, adjustment) in invoice.adjustments.iter().enumerate() {

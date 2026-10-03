@@ -1,110 +1,95 @@
 # invx
 
-`invx` is a Rust toolkit for reading, inspecting, validating, transforming, and
+`invx` is a Rust toolkit for reading, inspecting, validating, converting, and
 comparing electronic invoices.
 
-The project is built around a **canonical invoice model**. Format-specific XML
-such as UBL 2.1 or ebInterface 6.1 is parsed into its own representation and
-then mapped into the same canonical domain model.
+The project is built around a **canonical invoice model**. UBL 2.1 and
+ebInterface 6.1 are parsed into format-specific representations and then mapped
+into the same domain model.
 
 ```text
 UBL 2.1 XML ─────────────┐
-                         │
                          ▼
                   Canonical Invoice
                          ▲
-                         │
 ebInterface 6.1 XML ─────┘
 ```
 
-This keeps invoice semantics separate from the syntax used to represent them
-and provides a foundation for validation, conversion, comparison, and
-consulting/debugging workflows.
+Business logic works on the canonical model rather than directly on XML. This
+keeps format syntax separate from invoice semantics and makes validation,
+conversion, and comparison easier to reason about.
 
-> `invx` is currently under active development. Supported standards and
-> validation profiles are intentionally described as subsets unless full
-> conformance has been implemented and verified.
+> `invx` is under active development. Format and validation support should be
+> treated as a practical subset unless full conformance has been implemented
+> and verified.
 
 ## Goals
 
-`invx` is intended as both a learning project and a practical e-invoicing
-toolkit.
+`invx` is both a learning project and a practical e-invoicing toolkit.
 
 The main goals are:
 
 - understand e-invoice formats at the semantic level
-- provide a format-independent canonical invoice model
-- inspect invoices in a human-readable way
+- keep the domain model independent from XML syntax
+- inspect invoices in a readable form
 - validate canonical invoice semantics
-- support EN 16931 business rules
-- read and write UBL 2.1 invoices
-- read and write ebInterface 6.1 invoices
-- convert between supported invoice formats
+- support useful EN 16931 business rules
+- read and write UBL 2.1 and ebInterface 6.1
+- convert between supported formats
 - compare invoices semantically rather than as raw XML
-- provide useful diagnostics for integration and consulting work
+- produce useful diagnostics for integration and consulting work
 
 ## Current status
 
-Currently implemented:
+Implemented today:
 
-- UBL 2.1 invoice parsing
-- ebInterface 6.1 invoice parsing
-- automatic invoice format detection
+- UBL 2.1 parsing and writing
+- ebInterface 6.1 parsing and writing
+- automatic input format detection
 - mapping both formats into the same canonical invoice model
-- multiple invoice lines
-- multiple VAT rates
-- seller and buyer information
-- postal addresses
-- VAT identifiers
-- order references
-- payment information
-- document-level allowances and charges for UBL
-- canonical invoice totals
-- canonical validation
-- EN 16931 subset validation
-- human-readable invoice inspection
 - canonical JSON output
-
-Planned next:
-
-- canonical model → UBL 2.1 XML writer
-- canonical model → ebInterface 6.1 XML writer
-- broader UBL 2.1 invoice coverage
-- broader ebInterface 6.1 coverage
-- broader EN 16931 semantic coverage
-- semantic invoice conversion
+- human-readable inspection
+- core validation
+- EN 16931 subset validation
+- semantic conversion
+- conversion diagnostics
 - semantic invoice comparison
+- multiple invoice lines and VAT rates
+- seller, buyer, addresses, VAT IDs, references, and payment information
+- document-level allowances and charges
+- line-level allowances and charges
+- price base quantity
+- canonical totals and VAT breakdowns
+- semantic round-trip tests between supported formats
+
+Still intentionally incomplete:
+
+- broader UBL and ebInterface coverage
+- broader EN 16931 coverage
 - additional validation profiles
-- schema and official conformance validation
+- XSD/schema validation
+- official conformance validation
+- additional invoice formats
 
 ## Architecture
 
-The main architectural rule is:
+The main rule is simple:
 
 > XML formats do not define the domain model.
 
-Each supported format has its own parser representation and mapping layer.
+Each format has its own parser/writer model and mapping layer.
 
 ```text
-                        ┌─────────────────────┐
-UBL XML ──────────────▶│ UBL parser model    │
-                        └──────────┬──────────┘
+UBL XML ───────▶ UBL model ───────┐
                                   │
                                   ▼
-                         ┌─────────────────┐
-                         │                 │
-                         │ Canonical       │
-                         │ Invoice         │
-                         │                 │
-                         └─────────────────┘
+                           Canonical Invoice
                                   ▲
                                   │
-                        ┌──────────┴──────────┐
-ebInterface XML ──────▶│ ebInterface model   │
-                        └─────────────────────┘
+ebInterface XML ─▶ ebInterface model
 ```
 
-The canonical model is then consumed by common functionality:
+The canonical invoice is then used by the common functionality:
 
 ```text
 Canonical Invoice
@@ -112,183 +97,130 @@ Canonical Invoice
        ├── inspect
        ├── validate
        ├── JSON
-       ├── writers
-       ├── conversion
-       └── semantic comparison
+       ├── convert
+       ├── write
+       └── compare
 ```
 
-This prevents format-specific concepts from leaking unnecessarily into the rest
-of the application.
+This also means conversion does not happen directly from one XML tree to
+another.
+
+```text
+source XML
+    ↓
+source parser
+    ↓
+canonical Invoice
+    ↓
+target diagnostics
+    ↓
+target writer
+    ↓
+target XML
+```
 
 ## Canonical invoice model
 
-The canonical domain model currently represents concepts such as:
+The canonical model currently covers:
 
 ```text
 Invoice
-├── invoice ID
-├── issue date
-├── currency
-├── seller
-├── buyer
+├── ID, issue date, currency
+├── seller and buyer
 ├── order reference
 ├── invoice lines
-├── document adjustments
+│   ├── quantity and unit
+│   ├── unit price
+│   ├── price base quantity
+│   ├── line allowances / charges
+│   ├── line net amount
+│   └── VAT information
+├── document allowances / charges
 ├── VAT breakdown
 ├── payment information
 └── totals
 ```
 
-Money is represented using `rust_decimal::Decimal`.
+Money and quantities use `rust_decimal::Decimal`. Binary floating point is not
+used for financial arithmetic.
 
-Floating-point values are deliberately avoided for financial amounts.
+Format-specific numeric and date values are parsed first and converted into
+domain types in the mapping layer.
 
-Format-specific numeric and date values are initially parsed as strings and
-converted into domain types in the mapping layer.
-
-## Supported input formats
+## Supported formats
 
 ### UBL 2.1
 
-`invx` currently supports a useful subset of UBL 2.1 Invoice documents.
+The supported UBL subset includes:
 
-Examples of currently mapped concepts include:
-
-- invoice number
-- issue date
+- invoice number and issue date
 - document currency
-- supplier
-- customer
-- addresses
-- VAT identifiers
+- supplier and customer
+- postal addresses and VAT IDs
 - order reference
 - invoice lines
 - quantities and units
-- prices
+- unit prices and price base quantity
+- line allowances and charges
 - VAT categories and rates
-- VAT breakdowns
-- payment means
-- payment account
 - document allowances and charges
+- VAT breakdowns
+- payment means and payment account
 - monetary totals
 
-Support is being expanded toward comprehensive UBL 2.1 e-invoice coverage.
+UBL output is written from the canonical model.
 
 ### ebInterface 6.1
 
-`invx` can also read ebInterface 6.1 invoices and map them into the same
-canonical invoice model.
+The supported ebInterface subset includes:
 
-Currently mapped concepts include:
-
-- invoice number
-- issue date
+- invoice number and date
 - invoice currency
-- biller
-- invoice recipient
-- addresses
-- VAT identifiers
+- biller and invoice recipient
+- addresses and VAT IDs
 - order reference
-- item lists
-- invoice lines
+- item lists and invoice lines
 - quantities and units
-- prices
-- VAT information
-- VAT breakdowns
+- `UnitPrice` with `BaseQuantity`
+- line reductions and surcharges
+- VAT information and breakdowns
 - gross and payable totals
 - universal bank transfer information
 
-Support is being expanded toward comprehensive ebInterface 6.1 coverage.
+The ebInterface mapping preserves the order of line reductions and surcharges.
 
 ## Automatic format detection
 
-CLI commands do not need to know the source invoice format.
+CLI input does not need an explicit source format.
 
-The shared input layer inspects the XML root element and namespace and
-dispatches to the corresponding parser automatically.
-
-Conceptually:
+The input layer inspects the XML root element and namespace, selects the parser,
+and maps the result into the canonical model.
 
 ```text
 invoice.xml
-    │
-    ▼
+    ↓
 format detection
-    │
     ├── UBL 2.1
-    │      ↓
-    │   UBL parser
-    │
     └── ebInterface 6.1
-           ↓
-        ebInterface parser
-
-              ↓
-
-       Canonical Invoice
+    ↓
+Canonical Invoice
 ```
-
-As a result, the same CLI commands work for all supported input formats.
 
 ## CLI
 
-### Inspect an invoice
-
-```bash
-cargo run -- inspect invoice.xml
-```
-
-or, once installed:
+Inspect an invoice:
 
 ```bash
 invx inspect invoice.xml
 ```
 
-Example output:
-
-```text
-Document
-  Invoice ID: 2026-00421
-  Issue date: 2026-09-30
-  Currency:   EUR
-  Order ref:  PO-4711
-
-Seller
-  Example Supplier GmbH
-  Supplier Street 1
-  1010 Vienna
-  AT
-  VAT ID: ATU12345678
-
-Buyer
-  Example Logistics GmbH
-  Customer Street 10
-  1020 Vienna
-  AT
-  VAT ID: ATU87654321
-
-Lines
-  ...
-
-VAT
-  ...
-
-Payment
-  ...
-
-Totals
-  ...
-```
-
-### Validate an invoice
-
-Core validation:
+Validate with the core profile:
 
 ```bash
 invx validate invoice.xml
 ```
 
-EN 16931 subset:
+Validate with the EN 16931 subset:
 
 ```bash
 invx validate \
@@ -296,236 +228,154 @@ invx validate \
   invoice.xml
 ```
 
-Successful validation produces output such as:
-
-```text
-VALID [core]: invoice.xml
-```
-
-Validation failure produces violations such as:
-
-```text
-INVALID [core]: invoice.xml
-ERROR CORE-002 [totals.gross_amount] ...
-```
-
-## Validation profiles
-
-### Core
-
-The `core` profile validates internal canonical invoice consistency.
-
-Examples include:
-
-- invoices contain lines
-- line totals agree with invoice totals
-- allowances and charges reconcile with the net total
-- net amount plus tax equals gross amount
-- gross and payable totals are consistent with the currently supported model
-- currencies are consistent
-- VAT breakdown totals reconcile with the invoice tax total
-
-### EN 16931 subset
-
-The `en16931-subset` profile applies core validation plus currently implemented
-EN 16931-inspired business rules.
-
-Current rules include checks around:
-
-- bank-transfer payment accounts
-- invoice-line VAT categories
-- standard-rated VAT rates
-- VAT breakdown presence
-- VAT amount calculations
-
-This profile is deliberately called a **subset**.
-
-`invx` does not currently claim complete EN 16931 conformance.
-
-## Canonical JSON
-
-Any supported invoice format can be converted into the canonical JSON
-representation:
+Render the canonical model as JSON:
 
 ```bash
 invx to-json invoice.xml
 ```
 
-For example:
+Compare two invoices semantically:
 
-```json
-{
-  "id": "2026-00421",
-  "issue_date": "2026-09-30",
-  "currency": "EUR",
-  "seller": {
-    "name": "Example Supplier GmbH",
-    "vat_id": "ATU12345678"
-  },
-  "buyer": {
-    "name": "Example Logistics GmbH",
-    "vat_id": "ATU87654321"
-  },
-  "lines": [],
-  "adjustments": [],
-  "vat_breakdown": [],
-  "totals": {}
-}
+```bash
+invx compare invoice-a.xml invoice-b.xml
 ```
 
-The JSON represents the **canonical invoice**, not the source XML structure.
+Conversion is also available through the CLI. Source format detection is
+automatic; the target format is selected explicitly.
 
-This makes it useful for:
+## Validation
 
-- debugging mappings
-- understanding invoices
-- APIs
-- tests
-- semantic comparisons
-- future conversion workflows
+### Core
 
-## Payment model
+The `core` profile checks canonical invoice consistency.
 
-The canonical payment model distinguishes between semantic payment methods and
-syntax-specific codes.
+Current checks include:
 
-For example:
+- invoice contains at least one line
+- line net totals reconcile with invoice totals
+- document allowances and charges reconcile with invoice net
+- net plus tax equals gross
+- gross and payable totals are consistent with the current model
+- currencies are consistent
+- VAT breakdown totals reconcile with total tax
+- price base quantity is positive
+- line arithmetic is consistent
+
+Line arithmetic follows the canonical model:
 
 ```text
-UBL PaymentMeansCode = 58
-        ↓
-PaymentMethod::BankTransfer
-means_code = Some("58")
+quantity × unit price / price base quantity
+- line allowances
++ line charges
+= line net amount
 ```
 
-while ebInterface may express the same concept structurally:
+An omitted price base quantity means `1`.
+
+### EN 16931 subset
+
+The `en16931-subset` profile applies core validation plus selected EN 16931 and
+aligned business rules.
+
+Current checks include:
+
+- payment account requirements for credit transfer
+- invoice-line VAT category
+- standard-rated VAT rate
+- VAT breakdown presence and VAT amount calculation
+- non-negative item net price
+- price base quantity unit consistency
+- allowance/charge base amount and percentage consistency
+- allowance/charge amount calculation
+
+This is deliberately a subset. `invx` does not currently claim complete
+EN 16931 conformance.
+
+## Allowances, charges, and price base quantity
+
+Allowances and charges are represented explicitly rather than folded into the
+price.
+
+A line may contain:
 
 ```text
-UniversalBankTransaction
-        ↓
-PaymentMethod::BankTransfer
-means_code = None
+quantity
+× unit price
+÷ price base quantity
+- allowances
++ charges
+= line net amount
 ```
 
-This allows syntax-specific information to be retained without making the
-canonical model depend on UBL.
-
-## Document adjustments
-
-The canonical model distinguishes between:
-
-```text
-Allowance
-Charge
-```
-
-and represents:
+Both line and document adjustments can carry:
 
 - amount
 - optional base amount
 - optional percentage
-- reason
 - reason code
-- tax information
+- one or more reasons
 
-Canonical totals explicitly distinguish:
+Document adjustments can additionally carry their own tax information.
 
-```text
-line net
-allowances
-charges
-net
-tax
-gross
-payable
-```
+## Conversion diagnostics
 
-with the relationship:
+Before writing a target format, `invx` checks whether the canonical invoice can
+be represented safely.
+
+Diagnostics are classified as:
 
 ```text
-line net
-- allowances
-+ charges
-= net
-
-net
-+ tax
-= gross
+Blocking       target cannot represent the invoice safely
+Lossy          conversion is possible but information is reduced
+Informational  representation changes without changing business meaning
 ```
 
-## Conversion
+Examples include:
 
-Semantic conversion is a major goal of `invx`.
+- unsupported ebInterface line IDs or units
+- missing adjustment base amounts
+- incompatible price base quantity units
+- numeric precision that would require rounding
+- currency mismatches
+- multiple reasons that must be combined into one target field
+- syntax-specific payment information that changes representation
 
-The planned architecture is:
-
-```text
-source XML
-    ↓
-source-specific parser
-    ↓
-canonical Invoice
-    ↓
-target-specific writer
-    ↓
-target XML
-```
-
-For example:
-
-```text
-UBL 2.1
-   ↓
-canonical Invoice
-   ↓
-ebInterface 6.1
-```
-
-Writers will target the canonical model rather than converting directly between
-XML trees.
-
-This makes unsupported or lossy mappings explicit and allows the same writer to
-work regardless of the original source format.
+Blocking diagnostics stop conversion before the writer runs.
 
 ## Semantic comparison
 
-A future `compare` command will compare invoices based on canonical semantics
-rather than XML syntax.
+Comparison happens on canonical invoice semantics rather than raw XML.
 
-Planned usage:
+That means two invoices can compare equal even when their syntax differs. For
+example, an omitted price base quantity and an explicit base quantity of `1`
+are treated as equivalent where they mean the same thing.
 
-```bash
-invx compare invoice-ubl.xml invoice-ebinterface.xml
-```
+Comparison currently covers parties, lines, pricing, line adjustments, VAT,
+document adjustments, payment semantics, and totals.
 
-Two documents may differ significantly as XML while still representing the same
-business invoice.
+Syntax-specific details that do not change business meaning can be ignored
+deliberately, such as a UBL payment means code when both invoices still
+represent the same bank-transfer semantics.
 
 ## Error handling
 
-`invx` distinguishes between:
+`invx` prefers explicit errors over silent information loss.
 
-- processing/application errors
-- successfully processed but invalid invoices
-- successful processing and validation
+If a source concept cannot be represented safely in the canonical model, or the
+target format cannot represent a canonical concept, the operation should fail
+or return a clear diagnostic instead of dropping data.
 
-CLI exit codes follow this general convention:
+CLI exit codes follow this convention:
 
 ```text
-0  success / valid
-1  invoice processed but invalid
+0  success / valid / equal
+1  processed but invalid / different / incompatible
 2  processing or application error
 ```
 
-Mapping code prefers explicit errors over silent data loss.
-
-For example, if a source format contains multiple values but the canonical
-model currently supports only one, the mapper should reject the document rather
-than silently discard information.
-
 ## Development
 
-Run the full development checks with:
+Run the full checks with:
 
 ```bash
 cargo fmt
@@ -533,7 +383,7 @@ cargo clippy --all-targets --all-features
 cargo test
 ```
 
-Run a specific invoice manually with:
+Inspect the test fixtures manually with:
 
 ```bash
 cargo run -- inspect tests/fixtures/ubl/simple-invoice.xml
@@ -546,55 +396,52 @@ cargo run -- inspect \
   tests/fixtures/ebinterface/simple-invoice.xml
 ```
 
-Both should travel through the same canonical invoice pipeline.
+Both go through the same canonical invoice pipeline.
 
 ## Design principles
 
 ### Canonical semantics first
 
-Format-specific XML models exist to parse and write their corresponding syntax.
-
-Business logic operates on the canonical invoice.
+Format models exist to read and write their syntax. Business logic operates on
+the canonical invoice.
 
 ### Preserve information
 
-Mapping should not silently discard meaningful source data.
-
-If a mapping cannot currently be represented safely, returning an explicit
-error is preferable.
+Do not silently discard meaningful source data. Reject or diagnose mappings that
+cannot be represented safely.
 
 ### Exact financial arithmetic
 
-Financial values use decimal arithmetic rather than binary floating point.
+Use decimal arithmetic for financial values.
 
 ### Small vertical slices
 
-Features are implemented end-to-end:
+Features are implemented end to end:
 
 ```text
-XML
- ↓
 format model
- ↓
+    ↓
 mapping
- ↓
+    ↓
 canonical model
- ↓
-validation / CLI / tests
+    ↓
+validation / conversion / comparison
+    ↓
+tests
 ```
 
 ### Do not overstate compliance
 
-Support for a format or standard should only be described as complete once the
-relevant syntax and semantic requirements have been implemented and verified.
+Support for a standard should only be described as complete when the relevant
+syntax and semantic requirements have actually been implemented and verified.
 
 ## Standards
 
-The project is designed around standards including:
+The project currently works with:
 
 - OASIS UBL 2.1
 - ebInterface 6.1
-- EN 16931
+- EN 16931 concepts and selected business rules
 
 `invx` is an independent project and is not an official implementation or
 certification tool for these standards.

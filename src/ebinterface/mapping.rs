@@ -4,13 +4,15 @@ use std::str::FromStr;
 use thiserror::Error;
 
 use crate::domain::{
-    Address, Currency, Invoice, InvoiceId, InvoiceLine, InvoiceTotals, Money, Party,
-    PaymentAccount, PaymentInformation, PaymentMethod, TaxInformation, VatBreakdown,
+    Address, AdjustmentKind, Currency, Invoice, InvoiceId, InvoiceLine, InvoiceTotals,
+    LineAdjustment, Money, Party, PaymentAccount, PaymentInformation, PaymentMethod,
+    PriceBaseQuantity, TaxInformation, VatBreakdown,
 };
 
 use super::model::{
-    EbInterfaceBeneficiaryAccount, EbInterfaceInvoice, EbInterfaceLineItem, EbInterfaceParty,
-    EbInterfaceTaxItem, EbInterfaceUniversalBankTransaction,
+    EbInterfaceBeneficiaryAccount, EbInterfaceInvoice, EbInterfaceLineAdjustment,
+    EbInterfaceLineAdjustmentEntry, EbInterfaceLineItem, EbInterfaceParty, EbInterfaceTaxItem,
+    EbInterfaceUniversalBankTransaction,
 };
 
 #[derive(Debug, Error)]
@@ -30,10 +32,11 @@ pub enum MappingError {
     #[error("unsupported payment method")]
     UnsupportedPaymentMethod,
 
-    #[error(
-        "UnitPrice BaseQuantity '{value}' is not yet supported; only BaseQuantity 1 is supported"
-    )]
-    UnsupportedBaseQuantity { value: String },
+    #[error("line adjustment must contain Amount or Percentage in field {field}")]
+    MissingLineAdjustmentAmount { field: &'static str },
+
+    #[error("OtherVATableTaxListLineItem is not yet supported by the canonical model")]
+    UnsupportedOtherVatAbleTaxLineItem,
 }
 
 fn parse_date(value: &str, field: &'static str) -> Result<NaiveDate, MappingError> {
@@ -70,12 +73,102 @@ fn map_party(source: EbInterfaceParty, address_field: &'static str) -> Result<Pa
 
         address: Some(Address {
             street: address.street,
+
             postal_code: Some(address.zip),
+
             city: Some(address.town),
+
             country_code: address.country.country_code,
         }),
 
         vat_id: Some(source.vat_identification_number),
+    })
+}
+
+fn map_line_adjustment(
+    source: EbInterfaceLineAdjustment,
+    kind: AdjustmentKind,
+    currency: &Currency,
+) -> Result<LineAdjustment, MappingError> {
+    let (base_amount_field, percentage_field, amount_field) = match kind {
+        AdjustmentKind::Allowance => (
+            "Details.ItemList.ListLineItem.ReductionAndSurchargeListLineItemDetails.ReductionListLineItem.BaseAmount",
+            "Details.ItemList.ListLineItem.ReductionAndSurchargeListLineItemDetails.ReductionListLineItem.Percentage",
+            "Details.ItemList.ListLineItem.ReductionAndSurchargeListLineItemDetails.ReductionListLineItem.Amount",
+        ),
+
+        AdjustmentKind::Charge => (
+            "Details.ItemList.ListLineItem.ReductionAndSurchargeListLineItemDetails.SurchargeListLineItem.BaseAmount",
+            "Details.ItemList.ListLineItem.ReductionAndSurchargeListLineItemDetails.SurchargeListLineItem.Percentage",
+            "Details.ItemList.ListLineItem.ReductionAndSurchargeListLineItemDetails.SurchargeListLineItem.Amount",
+        ),
+    };
+
+    let base_amount_value = parse_decimal(&source.base_amount, base_amount_field)?;
+
+    let percentage = source
+        .percentage
+        .as_deref()
+        .map(|value| parse_decimal(value, percentage_field))
+        .transpose()?;
+
+    let explicit_amount = source
+        .amount
+        .as_deref()
+        .map(|value| parse_decimal(value, amount_field))
+        .transpose()?;
+
+    /*
+     * ebInterface permits Amount to be omitted
+     * when Percentage is supplied.
+     *
+     * If both are supplied, Amount takes
+     * precedence.
+     *
+     * We keep the exact Decimal result here and
+     * avoid introducing a rounding rule in the
+     * syntax-to-canonical mapping.
+     */
+    let amount_value = match (explicit_amount, percentage) {
+        (Some(amount), _) => amount,
+
+        (None, Some(percentage)) => base_amount_value * percentage / Decimal::new(100, 0),
+
+        (None, None) => {
+            return Err(MappingError::MissingLineAdjustmentAmount {
+                field: amount_field,
+            });
+        }
+    };
+
+    let reason_code = source.classification.map(|classification| {
+        /*
+         * The classification value is
+         * preserved as canonical
+         * reason_code.
+         *
+         * ClassificationSchema remains
+         * syntax-specific metadata and
+         * is not represented by the
+         * current canonical model.
+         */
+        classification.value
+    });
+
+    let reasons = source.comment.into_iter().collect();
+
+    Ok(LineAdjustment {
+        kind,
+
+        amount: Money::new(amount_value, currency.clone()),
+
+        base_amount: Some(Money::new(base_amount_value, currency.clone())),
+
+        percentage,
+
+        reason_code,
+
+        reasons,
     })
 }
 
@@ -98,29 +191,76 @@ fn map_line(source: EbInterfaceLineItem, currency: &Currency) -> Result<InvoiceL
     )?;
 
     /*
-     * ebInterface UnitPrice may refer to a BaseQuantity other than 1.
+     * ebInterface has no separate unit attribute
+     * on UnitPrice/@BaseQuantity.
      *
-     * Our current canonical InvoiceLine.unit_price means price per one unit,
-     * so silently ignoring BaseQuantity would be wrong.
+     * The base quantity therefore uses the same
+     * unit as the invoiced Quantity when mapped
+     * into the canonical model.
      */
-    if let Some(base_quantity) = &source.unit_price.base_quantity {
-        let value = parse_decimal(
-            base_quantity,
-            "Details.ItemList.ListLineItem.UnitPrice.@BaseQuantity",
-        )?;
+    let quantity_unit = source.quantity.unit;
 
-        if value != Decimal::ONE {
-            return Err(MappingError::UnsupportedBaseQuantity {
-                value: base_quantity.clone(),
-            });
-        }
-    }
+    let price_base_quantity = source
+        .unit_price
+        .base_quantity
+        .as_deref()
+        .map(|value| {
+            Ok::<PriceBaseQuantity, MappingError>(PriceBaseQuantity {
+                quantity: parse_decimal(
+                    value,
+                    "Details.ItemList.ListLineItem.UnitPrice.@BaseQuantity",
+                )?,
+
+                unit_code: Some(quantity_unit.clone()),
+            })
+        })
+        .transpose()?;
 
     let unit_price = money(
         &source.unit_price.value,
         currency,
         "Details.ItemList.ListLineItem.UnitPrice",
     )?;
+
+    /*
+     * Preserve the original adjustment order.
+     *
+     * ebInterface 6.1 permits reductions and
+     * surcharges to be mixed.
+     */
+    let mut adjustments = Vec::new();
+
+    if let Some(details) = source.reduction_and_surcharge_details {
+        for item in details.items {
+            match item {
+                EbInterfaceLineAdjustmentEntry::Reduction(adjustment) => {
+                    adjustments.push(map_line_adjustment(
+                        adjustment,
+                        AdjustmentKind::Allowance,
+                        currency,
+                    )?);
+                }
+
+                EbInterfaceLineAdjustmentEntry::Surcharge(adjustment) => {
+                    adjustments.push(map_line_adjustment(
+                        adjustment,
+                        AdjustmentKind::Charge,
+                        currency,
+                    )?);
+                }
+
+                EbInterfaceLineAdjustmentEntry::OtherVatAbleTax(_) => {
+                    /*
+                     * This contributes to the
+                     * ebInterface line-net formula,
+                     * so silently ignoring it would
+                     * change invoice semantics.
+                     */
+                    return Err(MappingError::UnsupportedOtherVatAbleTaxLineItem);
+                }
+            }
+        }
+    }
 
     let net_amount = money(
         &source.line_item_amount,
@@ -135,14 +275,24 @@ fn map_line(source: EbInterfaceLineItem, currency: &Currency) -> Result<InvoiceL
 
     Ok(InvoiceLine {
         id,
+
         description,
+
         quantity,
-        unit_code: Some(source.quantity.unit),
+
+        unit_code: Some(quantity_unit),
+
         unit_price,
+
+        price_base_quantity,
+
+        adjustments,
+
         net_amount,
 
         tax: TaxInformation {
             category_code: Some(source.tax_item.tax_percent.tax_category_code),
+
             rate: tax_rate,
         },
     })
@@ -195,8 +345,11 @@ fn map_bank_transfer(
 
     Ok(PaymentInformation {
         method: PaymentMethod::BankTransfer,
+
         means_code: None,
+
         reference,
+
         payee_account,
     })
 }
@@ -220,9 +373,12 @@ impl TryFrom<EbInterfaceInvoice> for Invoice {
         let buyer = map_party(source.invoice_recipient, "InvoiceRecipient.Address")?;
 
         /*
-         * ebInterface permits multiple ItemList elements.
-         * The canonical model deliberately flattens them into one
-         * invoice-lines collection.
+         * ebInterface permits multiple ItemList
+         * elements.
+         *
+         * The canonical model deliberately
+         * flattens them into one invoice-lines
+         * collection.
          */
         let lines = source
             .details
@@ -240,9 +396,9 @@ impl TryFrom<EbInterfaceInvoice> for Invoice {
             .collect::<Result<Vec<_>, _>>()?;
 
         /*
-         * The current ebInterface subset does not yet support
-         * ReductionAndSurchargeDetails, so document-level
-         * allowance and charge totals are zero.
+         * The current ebInterface subset does
+         * not yet support document-level
+         * ReductionAndSurchargeDetails.
          */
         let adjustments = Vec::new();
 
@@ -257,9 +413,13 @@ impl TryFrom<EbInterfaceInvoice> for Invoice {
         let charge_amount = zero_money(&currency);
 
         /*
-         * With no document-level allowances/charges in the
-         * supported subset, canonical net amount equals the
-         * sum of line net amounts.
+         * With no document-level allowances or
+         * charges in the currently supported
+         * subset, canonical net amount equals
+         * the sum of line net amounts.
+         *
+         * Line-level adjustments are already
+         * reflected in each LineItemAmount.
          */
         let net_amount = Money::new(line_net_amount_value, currency.clone());
 
@@ -309,6 +469,7 @@ impl TryFrom<EbInterfaceInvoice> for Invoice {
             payment,
 
             totals,
+
             adjustments,
         })
     }

@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use rust_decimal::Decimal;
 
 use crate::domain::{
-    AdjustmentKind, DocumentAdjustment, Invoice, InvoiceLine, Money, Party, PaymentInformation,
-    PaymentMethod, TaxInformation, VatBreakdown,
+    AdjustmentKind, DocumentAdjustment, Invoice, InvoiceLine, LineAdjustment, Money, Party,
+    PaymentInformation, PaymentMethod, TaxInformation, VatBreakdown,
 };
 
 pub use result::{ComparisonResult, Difference};
@@ -174,7 +174,6 @@ fn compare_party(result: &mut ComparisonResult, path: &str, left: &Party, right:
 
 fn compare_lines(result: &mut ComparisonResult, left: &[InvoiceLine], right: &[InvoiceLine]) {
     let left_groups = group_lines(left);
-
     let right_groups = group_lines(right);
 
     let ids = left_groups
@@ -286,6 +285,15 @@ fn compare_line(
         &right.unit_price,
     );
 
+    compare_price_base_quantity(result, path, left, right);
+
+    compare_line_adjustments(
+        result,
+        &format!("{path}.adjustments"),
+        &left.adjustments,
+        &right.adjustments,
+    );
+
     compare_money(
         result,
         &format!("{path}.net_amount"),
@@ -296,13 +304,167 @@ fn compare_line(
     compare_tax_information(result, &format!("{path}.tax"), &left.tax, &right.tax);
 }
 
+fn compare_price_base_quantity(
+    result: &mut ComparisonResult,
+    path: &str,
+    left: &InvoiceLine,
+    right: &InvoiceLine,
+) {
+    /*
+     * Canonically, an omitted price base quantity
+     * means that the unit price applies to one unit.
+     *
+     * Therefore:
+     *
+     *   None
+     *
+     * and:
+     *
+     *   Some(PriceBaseQuantity {
+     *       quantity: 1,
+     *       unit_code: line.unit_code,
+     *   })
+     *
+     * are semantically equivalent.
+     */
+
+    let left_quantity = left
+        .price_base_quantity
+        .as_ref()
+        .map(|base| base.quantity)
+        .unwrap_or(Decimal::ONE);
+
+    let right_quantity = right
+        .price_base_quantity
+        .as_ref()
+        .map(|base| base.quantity)
+        .unwrap_or(Decimal::ONE);
+
+    compare_decimal(
+        result,
+        &format!("{path}.price_base_quantity.quantity"),
+        left_quantity,
+        right_quantity,
+    );
+
+    let left_unit = effective_price_base_unit(left);
+    let right_unit = effective_price_base_unit(right);
+
+    compare_rendered(
+        result,
+        &format!("{path}.price_base_quantity.unit_code"),
+        left_unit,
+        right_unit,
+    );
+}
+
+fn effective_price_base_unit(line: &InvoiceLine) -> Option<String> {
+    line.price_base_quantity
+        .as_ref()
+        .and_then(|base| base.unit_code.clone())
+        .or_else(|| line.unit_code.clone())
+}
+
+fn compare_line_adjustments(
+    result: &mut ComparisonResult,
+    path: &str,
+    left: &[LineAdjustment],
+    right: &[LineAdjustment],
+) {
+    if left.len() != right.len() {
+        compare_rendered(
+            result,
+            &format!("{path}.count"),
+            Some(left.len().to_string()),
+            Some(right.len().to_string()),
+        );
+    }
+
+    for (index, (left_adjustment, right_adjustment)) in left.iter().zip(right.iter()).enumerate() {
+        compare_line_adjustment(
+            result,
+            &format!("{path}[{index}]"),
+            left_adjustment,
+            right_adjustment,
+        );
+    }
+
+    if left.len() > right.len() {
+        for (index, adjustment) in left.iter().enumerate().skip(right.len()) {
+            result.push(Difference::new(
+                format!("{path}[{index}]"),
+                Some(line_adjustment_summary(adjustment)),
+                None,
+            ));
+        }
+    }
+
+    if right.len() > left.len() {
+        for (index, adjustment) in right.iter().enumerate().skip(left.len()) {
+            result.push(Difference::new(
+                format!("{path}[{index}]"),
+                None,
+                Some(line_adjustment_summary(adjustment)),
+            ));
+        }
+    }
+}
+
+fn compare_line_adjustment(
+    result: &mut ComparisonResult,
+    path: &str,
+    left: &LineAdjustment,
+    right: &LineAdjustment,
+) {
+    compare_rendered(
+        result,
+        &format!("{path}.kind"),
+        Some(adjustment_kind(left.kind).to_string()),
+        Some(adjustment_kind(right.kind).to_string()),
+    );
+
+    compare_money(
+        result,
+        &format!("{path}.amount"),
+        &left.amount,
+        &right.amount,
+    );
+
+    compare_optional_money(
+        result,
+        &format!("{path}.base_amount"),
+        left.base_amount.as_ref(),
+        right.base_amount.as_ref(),
+    );
+
+    compare_optional_decimal(
+        result,
+        &format!("{path}.percentage"),
+        left.percentage,
+        right.percentage,
+    );
+
+    compare_rendered(
+        result,
+        &format!("{path}.reason_code"),
+        left.reason_code.clone(),
+        right.reason_code.clone(),
+    );
+
+    compare_string_list(
+        result,
+        &format!("{path}.reasons"),
+        &left.reasons,
+        &right.reasons,
+    );
+}
+
 fn compare_vat_breakdown(
     result: &mut ComparisonResult,
     left: &[VatBreakdown],
     right: &[VatBreakdown],
 ) {
     let left_groups = group_vat(left);
-
     let right_groups = group_vat(right);
 
     let keys = left_groups
@@ -385,7 +547,7 @@ fn group_vat(items: &[VatBreakdown]) -> BTreeMap<String, Vec<&VatBreakdown>> {
     for item in items {
         let category = item.category_code.as_deref().unwrap_or("<none>");
 
-        let key = format!("category={category},rate={}", decimal_string(item.rate,));
+        let key = format!("category={category},rate={}", decimal_string(item.rate));
 
         grouped.entry(key).or_insert_with(Vec::new).push(item);
     }
@@ -445,11 +607,11 @@ fn compare_adjustments(
             right_adjustment.reason_code.clone(),
         );
 
-        compare_rendered(
+        compare_string_list(
             result,
             &format!("{path}.reasons"),
-            Some(left_adjustment.reasons.join(" | ")),
-            Some(right_adjustment.reasons.join(" | ")),
+            &left_adjustment.reasons,
+            &right_adjustment.reasons,
         );
 
         compare_optional_tax(
@@ -600,11 +762,11 @@ fn compare_optional_tax(
 
 fn compare_money(result: &mut ComparisonResult, path: &str, left: &Money, right: &Money) {
     /*
-     * Compare the actual domain values rather
-     * than their textual rendering.
+     * Compare actual domain values instead of
+     * textual decimal representations.
      *
-     * Decimal considers 20, 20.0 and 20.00
-     * numerically equal.
+     * Decimal considers values such as 20,
+     * 20.0 and 20.00 numerically equal.
      */
     if left.amount != right.amount || left.currency != right.currency {
         result.push(Difference::new(
@@ -679,6 +841,21 @@ fn compare_optional_decimal(
     }
 }
 
+fn compare_string_list(
+    result: &mut ComparisonResult,
+    path: &str,
+    left: &[String],
+    right: &[String],
+) {
+    if left != right {
+        result.push(Difference::new(
+            path,
+            Some(format!("{left:?}")),
+            Some(format!("{right:?}")),
+        ));
+    }
+}
+
 fn compare_rendered(
     result: &mut ComparisonResult,
     path: &str,
@@ -697,35 +874,42 @@ fn decimal_string(value: Decimal) -> String {
 fn money_string(money: &Money) -> String {
     format!(
         "{} {}",
-        decimal_string(money.amount,),
+        decimal_string(money.amount),
         money.currency.as_str()
     )
 }
 
 fn line_summary(line: &InvoiceLine) -> String {
-    format!("{} — {}", line.description, money_string(&line.net_amount,))
+    format!("{} — {}", line.description, money_string(&line.net_amount))
 }
 
 fn vat_summary(vat: &VatBreakdown) -> String {
     format!(
         "taxable {}, tax {}",
-        money_string(&vat.taxable_amount,),
-        money_string(&vat.tax_amount,)
+        money_string(&vat.taxable_amount),
+        money_string(&vat.tax_amount)
     )
 }
 
 fn adjustment_summary(adjustment: &DocumentAdjustment) -> String {
     format!(
         "{} {}",
-        adjustment_kind(adjustment.kind,),
-        money_string(&adjustment.amount,)
+        adjustment_kind(adjustment.kind),
+        money_string(&adjustment.amount)
+    )
+}
+
+fn line_adjustment_summary(adjustment: &LineAdjustment) -> String {
+    format!(
+        "{} {}",
+        adjustment_kind(adjustment.kind),
+        money_string(&adjustment.amount)
     )
 }
 
 fn adjustment_kind(kind: AdjustmentKind) -> &'static str {
     match kind {
         AdjustmentKind::Allowance => "allowance",
-
         AdjustmentKind::Charge => "charge",
     }
 }
@@ -733,7 +917,6 @@ fn adjustment_kind(kind: AdjustmentKind) -> &'static str {
 fn payment_method(method: PaymentMethod) -> &'static str {
     match method {
         PaymentMethod::BankTransfer => "bank_transfer",
-
         PaymentMethod::Other => "other",
     }
 }

@@ -40,6 +40,24 @@ pub struct EbInterfaceTaxPercent {
     pub value: String,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EbInterfaceClassification {
+    #[serde(rename = "@ClassificationSchema")]
+    pub classification_schema: Option<String>,
+
+    #[serde(rename = "$text")]
+    pub value: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EbInterfaceCurrencyAmount {
+    #[serde(rename = "@Currency")]
+    pub currency: String,
+
+    #[serde(rename = "$text")]
+    pub value: String,
+}
+
 // -----------------------------------------------------------------------------
 // References
 // -----------------------------------------------------------------------------
@@ -116,6 +134,75 @@ pub struct EbInterfaceTax {
 }
 
 // -----------------------------------------------------------------------------
+// Invoice line reductions / surcharges
+// -----------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EbInterfaceLineAdjustment {
+    #[serde(rename = "BaseAmount")]
+    pub base_amount: String,
+
+    #[serde(rename = "Percentage")]
+    pub percentage: Option<String>,
+
+    #[serde(rename = "Amount")]
+    pub amount: Option<String>,
+
+    #[serde(rename = "Comment")]
+    pub comment: Option<String>,
+
+    #[serde(rename = "Classification")]
+    pub classification: Option<EbInterfaceClassification>,
+}
+
+/*
+ * We do not yet have a canonical representation for
+ * OtherVATableTaxListLineItem.
+ *
+ * Still parse it here so the mapping layer can detect
+ * its presence and reject the conversion explicitly
+ * instead of silently losing information.
+ */
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EbInterfaceOtherVatAbleTaxLineItem {
+    #[serde(rename = "TaxableAmount")]
+    pub taxable_amount: String,
+
+    #[serde(rename = "TaxPercent")]
+    pub tax_percent: EbInterfaceTaxPercent,
+
+    #[serde(rename = "TaxAmount")]
+    pub tax_amount: Option<String>,
+
+    #[serde(rename = "AccountingCurrencyAmount")]
+    pub accounting_currency_amount: Option<EbInterfaceCurrencyAmount>,
+
+    #[serde(rename = "Comment")]
+    pub comment: Option<String>,
+
+    #[serde(rename = "TaxID")]
+    pub tax_id: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub enum EbInterfaceLineAdjustmentEntry {
+    #[serde(rename = "ReductionListLineItem")]
+    Reduction(EbInterfaceLineAdjustment),
+
+    #[serde(rename = "SurchargeListLineItem")]
+    Surcharge(EbInterfaceLineAdjustment),
+
+    #[serde(rename = "OtherVATableTaxListLineItem")]
+    OtherVatAbleTax(EbInterfaceOtherVatAbleTaxLineItem),
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EbInterfaceReductionAndSurchargeListLineItemDetails {
+    #[serde(rename = "$value", default)]
+    pub items: Vec<EbInterfaceLineAdjustmentEntry>,
+}
+
+// -----------------------------------------------------------------------------
 // Invoice lines
 // -----------------------------------------------------------------------------
 
@@ -132,6 +219,10 @@ pub struct EbInterfaceLineItem {
 
     #[serde(rename = "UnitPrice")]
     pub unit_price: EbInterfaceUnitPrice,
+
+    #[serde(rename = "ReductionAndSurchargeListLineItemDetails")]
+    pub reduction_and_surcharge_details:
+        Option<EbInterfaceReductionAndSurchargeListLineItemDetails>,
 
     #[serde(rename = "TaxItem")]
     pub tax_item: EbInterfaceTaxItem,

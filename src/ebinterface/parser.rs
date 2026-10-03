@@ -8,6 +8,7 @@ pub fn parse_invoice(xml: &str) -> Result<EbInterfaceInvoice, quick_xml::DeError
 
 #[cfg(test)]
 mod tests {
+    use super::super::model::EbInterfaceLineAdjustmentEntry;
     use super::*;
 
     const SIMPLE_INVOICE: &str =
@@ -74,6 +75,8 @@ mod tests {
 
         assert_eq!(buyer_address.country.country_code.as_deref(), Some("AT"));
 
+        assert_eq!(buyer_address.country.value, "Austria");
+
         // Order reference
 
         let order_reference = invoice
@@ -102,9 +105,73 @@ mod tests {
 
         assert_eq!(line.quantity.unit, "HUR");
 
-        assert_eq!(line.unit_price.value, "950.00");
+        // Unit price / base quantity
 
-        assert_eq!(line.line_item_amount, "9500.00");
+        assert_eq!(line.unit_price.value, "1000.00");
+
+        assert_eq!(line.unit_price.base_quantity.as_deref(), Some("1"));
+
+        // Line reductions / surcharges
+
+        let adjustment_details = line
+            .reduction_and_surcharge_details
+            .as_ref()
+            .expect("line should contain reduction and surcharge details");
+
+        assert_eq!(adjustment_details.items.len(), 2);
+
+        match &adjustment_details.items[0] {
+            EbInterfaceLineAdjustmentEntry::Reduction(reduction) => {
+                assert_eq!(reduction.base_amount, "10000.00");
+
+                assert_eq!(reduction.percentage.as_deref(), Some("6.00"));
+
+                assert_eq!(reduction.amount.as_deref(), Some("600.00"));
+
+                assert_eq!(reduction.comment.as_deref(), Some("Volume discount"));
+
+                let classification = reduction
+                    .classification
+                    .as_ref()
+                    .expect("reduction should have a classification");
+
+                assert_eq!(classification.value, "VOLUME_DISCOUNT");
+
+                assert_eq!(classification.classification_schema.as_deref(), None);
+            }
+
+            other => {
+                panic!("expected reduction as first line adjustment, got {other:?}");
+            }
+        }
+
+        match &adjustment_details.items[1] {
+            EbInterfaceLineAdjustmentEntry::Surcharge(surcharge) => {
+                assert_eq!(surcharge.base_amount, "10000.00");
+
+                assert_eq!(surcharge.percentage.as_deref(), Some("1.00"));
+
+                assert_eq!(surcharge.amount.as_deref(), Some("100.00"));
+
+                assert_eq!(
+                    surcharge.comment.as_deref(),
+                    Some("Line handling surcharge")
+                );
+
+                let classification = surcharge
+                    .classification
+                    .as_ref()
+                    .expect("surcharge should have a classification");
+
+                assert_eq!(classification.value, "HANDLING");
+
+                assert_eq!(classification.classification_schema.as_deref(), None);
+            }
+
+            other => {
+                panic!("expected surcharge as second line adjustment, got {other:?}");
+            }
+        }
 
         // Line tax
 
@@ -115,6 +182,8 @@ mod tests {
         assert_eq!(line.tax_item.tax_percent.tax_category_code, "S");
 
         assert_eq!(line.tax_item.tax_amount.as_deref(), Some("1900.00"));
+
+        assert_eq!(line.line_item_amount, "9500.00");
 
         // Invoice VAT breakdown
 
@@ -156,10 +225,17 @@ mod tests {
         );
 
         assert_eq!(
+            bank_transfer.beneficiary_accounts[0]
+                .bank_account_nr
+                .as_deref(),
+            None
+        );
+
+        assert_eq!(
             bank_transfer
                 .payment_reference
                 .as_ref()
-                .map(|reference| reference.value.as_str()),
+                .map(|reference| { reference.value.as_str() }),
             Some("2026-00421")
         );
     }

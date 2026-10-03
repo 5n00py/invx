@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 
 use invx::{
-    domain::{Invoice, PaymentMethod},
+    domain::{AdjustmentKind, Invoice, PaymentMethod},
     ebinterface::parser::parse_invoice,
 };
 
@@ -35,50 +35,118 @@ fn maps_ebinterface_invoice_into_canonical_invoice() {
 
     assert_eq!(line.description, "Integration consulting");
 
-    assert_eq!(line.quantity, Decimal::new(10, 0));
+    assert_eq!(line.quantity, Decimal::new(10, 0,));
 
     assert_eq!(line.unit_code.as_deref(), Some("HUR"));
 
-    assert_eq!(line.unit_price.amount, Decimal::new(95_000, 2));
+    assert_eq!(line.unit_price.amount, Decimal::new(100_000, 2,));
 
-    assert_eq!(line.net_amount.amount, Decimal::new(950_000, 2));
+    // Price base quantity
+
+    let base_quantity = line
+        .price_base_quantity
+        .as_ref()
+        .expect("line should have price base quantity");
+
+    assert_eq!(base_quantity.quantity, Decimal::ONE);
+
+    assert_eq!(base_quantity.unit_code.as_deref(), Some("HUR"));
+
+    // Line-level reductions / surcharges
+
+    assert_eq!(line.adjustments.len(), 2);
+
+    let allowance = &line.adjustments[0];
+
+    assert_eq!(allowance.kind, AdjustmentKind::Allowance);
+
+    assert_eq!(allowance.amount.amount, Decimal::new(60_000, 2,));
+
+    assert_eq!(allowance.amount.currency.as_str(), "EUR");
+
+    assert_eq!(
+        allowance.base_amount.as_ref().map(|money| { money.amount }),
+        Some(Decimal::new(1_000_000, 2,))
+    );
+
+    assert_eq!(allowance.percentage, Some(Decimal::new(6, 0,)));
+
+    assert_eq!(allowance.reason_code.as_deref(), Some("VOLUME_DISCOUNT"));
+
+    assert_eq!(allowance.reasons, vec!["Volume discount"]);
+
+    let charge = &line.adjustments[1];
+
+    assert_eq!(charge.kind, AdjustmentKind::Charge);
+
+    assert_eq!(charge.amount.amount, Decimal::new(10_000, 2,));
+
+    assert_eq!(charge.amount.currency.as_str(), "EUR");
+
+    assert_eq!(
+        charge.base_amount.as_ref().map(|money| { money.amount }),
+        Some(Decimal::new(1_000_000, 2,))
+    );
+
+    assert_eq!(charge.percentage, Some(Decimal::ONE));
+
+    assert_eq!(charge.reason_code.as_deref(), Some("HANDLING"));
+
+    assert_eq!(charge.reasons, vec!["Line handling surcharge"]);
+
+    // Line net amount stays after adjustments
+
+    assert_eq!(line.net_amount.amount, Decimal::new(950_000, 2,));
+
+    // Line VAT
 
     assert_eq!(line.tax.category_code.as_deref(), Some("S"));
 
-    assert_eq!(line.tax.rate, Decimal::new(2_000, 2));
+    assert_eq!(line.tax.rate, Decimal::new(2_000, 2,));
+
+    // VAT breakdown
 
     assert_eq!(invoice.vat_breakdown.len(), 1);
 
     assert_eq!(
         invoice.vat_breakdown[0].taxable_amount.amount,
-        Decimal::new(950_000, 2)
+        Decimal::new(950_000, 2,)
     );
 
     assert_eq!(
         invoice.vat_breakdown[0].tax_amount.amount,
-        Decimal::new(190_000, 2)
+        Decimal::new(190_000, 2,)
     );
+
+    // Totals
 
     assert_eq!(
         invoice.totals.line_net_amount.amount,
-        Decimal::new(950_000, 2)
+        Decimal::new(950_000, 2,)
     );
 
-    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(950_000, 2));
+    assert_eq!(invoice.totals.net_amount.amount, Decimal::new(950_000, 2,));
 
-    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(190_000, 2));
+    assert_eq!(invoice.totals.tax_amount.amount, Decimal::new(190_000, 2,));
 
     assert_eq!(
         invoice.totals.gross_amount.amount,
-        Decimal::new(1_140_000, 2)
+        Decimal::new(1_140_000, 2,)
     );
 
     assert_eq!(
         invoice.totals.payable_amount.amount,
-        Decimal::new(1_140_000, 2)
+        Decimal::new(1_140_000, 2,)
     );
 
+    /*
+     * These are document-level adjustments.
+     * The reductions / surcharges above belong
+     * to the invoice line, so this remains empty.
+     */
     assert!(invoice.adjustments.is_empty());
+
+    // Payment
 
     let payment = invoice
         .payment
@@ -95,7 +163,7 @@ fn maps_ebinterface_invoice_into_canonical_invoice() {
         payment
             .payee_account
             .as_ref()
-            .map(|account| account.identifier.as_str()),
+            .map(|account| { account.identifier.as_str() }),
         Some("AT611904300234573201")
     );
 

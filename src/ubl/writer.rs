@@ -9,8 +9,9 @@ use rust_decimal::Decimal;
 use thiserror::Error;
 
 use crate::domain::{
-    Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceLine, Money, Party,
-    PaymentInformation, PaymentMethod, TaxInformation, VatBreakdown,
+    Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceLine, LineAdjustment,
+    Money, Party, PaymentInformation, PaymentMethod, PriceBaseQuantity, TaxInformation,
+    VatBreakdown,
 };
 
 const UBL_INVOICE_NAMESPACE: &str = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2";
@@ -411,6 +412,15 @@ fn write_line(
         "lines.net_amount",
     )?;
 
+    /*
+     * UBL InvoiceLine AllowanceCharge elements
+     * come after LineExtensionAmount and before
+     * Item.
+     */
+    for adjustment in &line.adjustments {
+        write_line_adjustment(writer, adjustment, invoice_currency)?;
+    }
+
     writer.write_event(Event::Start(BytesStart::new("cac:Item")))?;
 
     write_text(writer, "cbc:Description", &line.description)?;
@@ -429,9 +439,94 @@ fn write_line(
         "lines.unit_price",
     )?;
 
+    if let Some(base_quantity) = &line.price_base_quantity {
+        write_price_base_quantity(writer, base_quantity)?;
+    }
+
     writer.write_event(Event::End(BytesEnd::new("cac:Price")))?;
 
     writer.write_event(Event::End(BytesEnd::new("cac:InvoiceLine")))?;
+
+    Ok(())
+}
+
+fn write_line_adjustment(
+    writer: &mut XmlWriter,
+    adjustment: &LineAdjustment,
+    invoice_currency: &Currency,
+) -> Result<(), WriterError> {
+    writer.write_event(Event::Start(BytesStart::new("cac:AllowanceCharge")))?;
+
+    let charge_indicator = match adjustment.kind {
+        AdjustmentKind::Allowance => "false",
+
+        AdjustmentKind::Charge => "true",
+    };
+
+    write_text(writer, "cbc:ChargeIndicator", charge_indicator)?;
+
+    if let Some(reason_code) = &adjustment.reason_code {
+        write_text(writer, "cbc:AllowanceChargeReasonCode", reason_code)?;
+    }
+
+    for reason in &adjustment.reasons {
+        write_text(writer, "cbc:AllowanceChargeReason", reason)?;
+    }
+
+    if let Some(percentage) = adjustment.percentage {
+        write_text(
+            writer,
+            "cbc:MultiplierFactorNumeric",
+            &percentage.to_string(),
+        )?;
+    }
+
+    write_money(
+        writer,
+        "cbc:Amount",
+        &adjustment.amount,
+        invoice_currency,
+        "lines.adjustments.amount",
+    )?;
+
+    if let Some(base_amount) = &adjustment.base_amount {
+        write_money(
+            writer,
+            "cbc:BaseAmount",
+            base_amount,
+            invoice_currency,
+            "lines.adjustments.base_amount",
+        )?;
+    }
+
+    /*
+     * No TaxCategory is written here.
+     *
+     * Canonical line adjustments inherit the
+     * VAT treatment of the invoice line itself.
+     */
+    writer.write_event(Event::End(BytesEnd::new("cac:AllowanceCharge")))?;
+
+    Ok(())
+}
+
+fn write_price_base_quantity(
+    writer: &mut XmlWriter,
+    base_quantity: &PriceBaseQuantity,
+) -> Result<(), WriterError> {
+    let mut element = BytesStart::new("cbc:BaseQuantity");
+
+    if let Some(unit_code) = &base_quantity.unit_code {
+        element.push_attribute(("unitCode", unit_code.as_str()));
+    }
+
+    writer.write_event(Event::Start(element))?;
+
+    writer.write_event(Event::Text(BytesText::new(
+        &base_quantity.quantity.to_string(),
+    )))?;
+
+    writer.write_event(Event::End(BytesEnd::new("cbc:BaseQuantity")))?;
 
     Ok(())
 }

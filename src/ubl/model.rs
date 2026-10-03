@@ -200,6 +200,9 @@ pub struct UblItem {
 pub struct UblPrice {
     #[serde(rename = "PriceAmount")]
     pub price_amount: UblAmount,
+
+    #[serde(rename = "BaseQuantity")]
+    pub base_quantity: Option<UblQuantity>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -218,6 +221,9 @@ pub struct UblInvoiceLine {
 
     #[serde(rename = "Price")]
     pub price: UblPrice,
+
+    #[serde(rename = "AllowanceCharge", default)]
+    pub allowance_charges: Vec<UblAllowanceCharge>,
 }
 
 // -----------------------------------------------------------------------------

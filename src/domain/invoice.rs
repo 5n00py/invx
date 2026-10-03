@@ -1,6 +1,7 @@
 use super::{
     Currency, DocumentAdjustment, Money, Party, PaymentInformation, TaxInformation, VatBreakdown,
 };
+use crate::domain::adjustment::LineAdjustment;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -19,13 +20,35 @@ impl InvoiceId {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct InvoiceLine {
-    pub id: String,
-    pub description: String,
+pub struct PriceBaseQuantity {
     pub quantity: Decimal,
     pub unit_code: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct InvoiceLine {
+    pub id: String,
+
+    pub description: String,
+
+    pub quantity: Decimal,
+
+    pub unit_code: Option<String>,
+
     pub unit_price: Money,
+
+    /// Optional item price base quantity.
+    ///
+    /// None means the price applies to one unit.
+    pub price_base_quantity: Option<PriceBaseQuantity>,
+
+    /// Line-level allowances and charges.
+    pub adjustments: Vec<LineAdjustment>,
+
+    /// Net line amount after line-level
+    /// allowances and charges, excluding VAT.
     pub net_amount: Money,
+
     pub tax: TaxInformation,
 }
 

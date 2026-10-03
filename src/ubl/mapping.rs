@@ -5,11 +5,13 @@ use thiserror::Error;
 
 use crate::domain::{
     Address, AdjustmentKind, Currency, DocumentAdjustment, Invoice, InvoiceId, InvoiceLine,
-    InvoiceTotals, Money, Party, PaymentAccount, PaymentInformation, PaymentMethod, TaxInformation,
-    VatBreakdown,
+    InvoiceTotals, LineAdjustment, Money, Party, PaymentAccount, PaymentInformation, PaymentMethod,
+    PriceBaseQuantity, TaxInformation, VatBreakdown,
 };
 
-use super::model::{UblAllowanceCharge, UblAmount, UblInvoice, UblParty, UblPaymentMeans};
+use super::model::{
+    UblAllowanceCharge, UblAmount, UblInvoice, UblParty, UblPaymentMeans, UblQuantity,
+};
 
 #[derive(Debug, Error)]
 pub enum MappingError {
@@ -28,6 +30,11 @@ pub enum MappingError {
 
     #[error("multiple payment means are not yet supported")]
     MultiplePaymentMeans,
+
+    #[error(
+        "line-level AllowanceCharge contains its own TaxCategory; canonical line adjustments inherit VAT from the invoice line"
+    )]
+    UnsupportedLineAdjustmentTaxCategory,
 }
 
 fn parse_date(value: &str, field: &'static str) -> Result<NaiveDate, MappingError> {
@@ -69,8 +76,11 @@ fn map_amount(
 fn map_party(source: UblParty) -> Party {
     let address = source.postal_address.map(|address| Address {
         street: address.street_name,
+
         postal_code: address.postal_zone,
+
         city: address.city_name,
+
         country_code: address
             .country
             .and_then(|country| country.identification_code),
@@ -90,7 +100,9 @@ fn map_party(source: UblParty) -> Party {
 
     Party {
         name: source.party_name.name,
+
         address,
+
         vat_id,
     }
 }
@@ -114,6 +126,72 @@ fn map_payment(source: UblPaymentMeans) -> PaymentInformation {
         reference: source.payment_id,
         payee_account,
     }
+}
+
+fn map_price_base_quantity(source: UblQuantity) -> Result<PriceBaseQuantity, MappingError> {
+    Ok(PriceBaseQuantity {
+        quantity: parse_decimal(&source.value, "InvoiceLine.Price.BaseQuantity")?,
+
+        unit_code: source.unit_code,
+    })
+}
+
+fn map_line_adjustment(
+    source: UblAllowanceCharge,
+    currency: &Currency,
+) -> Result<LineAdjustment, MappingError> {
+    /*
+     * Our canonical LineAdjustment does not have
+     * separate tax information.
+     *
+     * The line's TaxInformation determines the VAT
+     * treatment of all line-level allowances and
+     * charges.
+     *
+     * Therefore we must not silently discard an
+     * explicit UBL TaxCategory here.
+     */
+    if source.tax_category.is_some() {
+        return Err(MappingError::UnsupportedLineAdjustmentTaxCategory);
+    }
+
+    let kind = if source.charge_indicator {
+        AdjustmentKind::Charge
+    } else {
+        AdjustmentKind::Allowance
+    };
+
+    let amount = map_amount(
+        source.amount,
+        currency,
+        "InvoiceLine.AllowanceCharge.Amount",
+    )?;
+
+    let base_amount = source
+        .base_amount
+        .map(|amount| map_amount(amount, currency, "InvoiceLine.AllowanceCharge.BaseAmount"))
+        .transpose()?;
+
+    let percentage = source
+        .multiplier_factor_numeric
+        .map(|value| {
+            parse_decimal(
+                &value,
+                "InvoiceLine.AllowanceCharge.MultiplierFactorNumeric",
+            )
+        })
+        .transpose()?;
+
+    Ok(LineAdjustment {
+        kind,
+        amount,
+        base_amount,
+        percentage,
+
+        reason_code: source.reason_code,
+
+        reasons: source.reasons,
+    })
 }
 
 fn map_adjustment(
@@ -145,6 +223,7 @@ fn map_adjustment(
 
             Ok::<_, MappingError>(TaxInformation {
                 category_code: tax.id,
+
                 rate,
             })
         })
@@ -155,8 +234,11 @@ fn map_adjustment(
         amount,
         base_amount,
         percentage,
+
         reason_code: source.reason_code,
+
         reasons: source.reasons,
+
         tax,
     })
 }
@@ -193,8 +275,21 @@ impl TryFrom<UblInvoice> for Invoice {
                 "InvoiceLine.Item.ClassifiedTaxCategory.Percent",
             )?;
 
+            let price_base_quantity = line
+                .price
+                .base_quantity
+                .map(map_price_base_quantity)
+                .transpose()?;
+
+            let adjustments = line
+                .allowance_charges
+                .into_iter()
+                .map(|adjustment| map_line_adjustment(adjustment, &currency))
+                .collect::<Result<Vec<_>, _>>()?;
+
             lines.push(InvoiceLine {
                 id: line.id,
+
                 description: line.item.description,
 
                 quantity: parse_decimal(
@@ -210,6 +305,10 @@ impl TryFrom<UblInvoice> for Invoice {
                     "InvoiceLine.Price.PriceAmount",
                 )?,
 
+                price_base_quantity,
+
+                adjustments,
+
                 net_amount: map_amount(
                     line.line_extension_amount,
                     &currency,
@@ -218,16 +317,18 @@ impl TryFrom<UblInvoice> for Invoice {
 
                 tax: TaxInformation {
                     category_code: line.item.classified_tax_category.id,
+
                     rate: tax_rate,
                 },
             });
         }
 
         /*
-         * Pull these nested structures out before consuming
-         * their individual fields below.
+         * Pull these nested structures out before
+         * consuming their individual fields below.
          */
         let tax_total = source.tax_total;
+
         let monetary_total = source.legal_monetary_total;
 
         let mut vat_breakdown = Vec::new();
@@ -310,6 +411,7 @@ impl TryFrom<UblInvoice> for Invoice {
 
         Ok(Invoice {
             id: InvoiceId::new(source.id),
+
             issue_date,
             currency,
 

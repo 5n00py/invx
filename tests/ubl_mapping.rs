@@ -25,7 +25,7 @@ fn maps_ubl_invoice_into_canonical_invoice() {
 
     assert_eq!(line.quantity, Decimal::new(10, 0));
 
-    assert_eq!(line.unit_price.amount, Decimal::new(95000, 2));
+    assert_eq!(line.unit_price.amount, Decimal::new(100000, 2));
 
     assert_eq!(line.net_amount.amount, Decimal::new(950000, 2));
 

@@ -45,6 +45,8 @@ fn can_build_a_complete_invoice_through_the_public_api() {
             category_code: Some("S".to_string()),
             rate: Decimal::new(20, 0),
         },
+        price_base_quantity: None,
+        adjustments: vec![],
     };
 
     let vat = VatBreakdown {

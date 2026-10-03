@@ -41,8 +41,28 @@
             <ListLineItem>
                 <PositionNumber>1</PositionNumber>
                 <Description>Integration consulting</Description>
+
                 <Quantity Unit="HUR">10</Quantity>
-                <UnitPrice>950.00</UnitPrice>
+
+                <UnitPrice BaseQuantity="1">1000.00</UnitPrice>
+
+                <ReductionAndSurchargeListLineItemDetails>
+                    <ReductionListLineItem>
+                        <BaseAmount>10000.00</BaseAmount>
+                        <Percentage>6.00</Percentage>
+                        <Amount>600.00</Amount>
+                        <Comment>Volume discount</Comment>
+                        <Classification>VOLUME_DISCOUNT</Classification>
+                    </ReductionListLineItem>
+
+                    <SurchargeListLineItem>
+                        <BaseAmount>10000.00</BaseAmount>
+                        <Percentage>1.00</Percentage>
+                        <Amount>100.00</Amount>
+                        <Comment>Line handling surcharge</Comment>
+                        <Classification>HANDLING</Classification>
+                    </SurchargeListLineItem>
+                </ReductionAndSurchargeListLineItemDetails>
 
                 <TaxItem>
                     <TaxableAmount>9500.00</TaxableAmount>
@@ -71,6 +91,7 @@
             <BeneficiaryAccount>
                 <IBAN>AT611904300234573201</IBAN>
             </BeneficiaryAccount>
+
             <PaymentReference>2026-00421</PaymentReference>
         </UniversalBankTransaction>
     </PaymentMethod>
