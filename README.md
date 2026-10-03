@@ -206,6 +206,26 @@ format detection
 Canonical Invoice
 ```
 
+## Installation
+
+Once published on crates.io:
+
+```bash
+cargo install invx
+```
+
+To install the latest version directly from GitHub:
+
+```bash
+cargo install --git https://github.com/5n00py/invx.git
+```
+
+Then:
+
+```bash
+invx --help
+```
+
 ## CLI
 
 Inspect an invoice:
