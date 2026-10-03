@@ -3,6 +3,26 @@ name = "invx"
 version = "0.1.0"
 edition = "2024"
 
+description = "Semantic e-invoice parsing, validation, conversion and comparison for Rust"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+repository = "https://github.com/5n00py/invx"
+homepage = "https://github.com/5n00py/invx"
+
+keywords = [
+    "einvoice",
+    "invoicing",
+    "ubl",
+    "en16931",
+    "ebinterface",
+]
+
+categories = [
+    "command-line-utilities",
+    "parser-implementations",
+]
+
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { version = "1", features = ["serde"] }

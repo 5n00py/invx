@@ -445,3 +445,14 @@ The project currently works with:
 
 `invx` is an independent project and is not an official implementation or
 certification tool for these standards.
+
+## License
+
+Licensed under either of:
+
+- Apache License, Version 2.0
+- MIT License
+
+at your option.
+
+Copyright © 2026 LNL join.tech FlexCo.
